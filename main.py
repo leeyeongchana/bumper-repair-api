@@ -35,10 +35,16 @@ def init_db():
             resp         TEXT,
             memo         TEXT,
             markers      TEXT,
+            photos       TEXT,
             submitted_at TEXT,
             date         TEXT
         )
     """)
+    # photos 컬럼 없는 기존 테이블에 추가 (이미 있으면 무시)
+    try:
+        cur.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS photos TEXT")
+    except Exception:
+        pass
     conn.commit()
     cur.close()
     conn.close()
@@ -68,6 +74,7 @@ class Record(BaseModel):
     resp:       str = ""
     memo:       str = ""
     markers:    list = []
+    photos:     list = []
 
 # ── 제출 ───────────────────────────────────────────────────────────────────────
 @app.post("/submit")
@@ -78,8 +85,8 @@ async def submit_record(record: Record):
     cur.execute("""
         INSERT INTO records
         (factory, model, position, cno, color, action, defect, defect_sub,
-         resp, memo, markers, submitted_at, date)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+         resp, memo, markers, photos, submitted_at, date)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
     """, (
         record.factory, record.model, record.position,
@@ -87,6 +94,7 @@ async def submit_record(record: Record):
         record.defect, record.defect_sub,
         record.resp, record.memo,
         json.dumps(record.markers, ensure_ascii=False),
+        json.dumps(record.photos, ensure_ascii=False),
         now.isoformat(),
         now.strftime("%Y-%m-%d"),
     ))
@@ -121,6 +129,7 @@ def get_records(
     for r in rows:
         d = dict(r)
         d['markers'] = json.loads(d.get('markers') or '[]')
+        d['photos'] = json.loads(d.get('photos') or '[]')
         result.append(d)
     return result
 
