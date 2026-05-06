@@ -1,21 +1,24 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import os
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 import json
 
-# ── PostgreSQL (Supabase) ──────────────────────────────────────────────────────
-# Render.com 환경변수 DATABASE_URL 에 Supabase 연결문자열을 설정하세요.
-# 예) postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
-import psycopg2
-import psycopg2.extras
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "")
+# ── SQLite (로컬 파일) ─────────────────────────────────────────────────────────
+# 별도 DB 서버 없이 작동. main.py와 같은 폴더의 bumper_log.db 파일을 사용.
+import sqlite3
+
+DB_PATH = os.path.join(BASE_DIR, "bumper_log.db")
 
 def get_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
@@ -23,7 +26,7 @@ def init_db():
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS records (
-            id           SERIAL PRIMARY KEY,
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
             factory      TEXT,
             model        TEXT,
             position     TEXT,
@@ -40,11 +43,14 @@ def init_db():
             date         TEXT
         )
     """)
-    # photos 컬럼 없는 기존 테이블에 추가 (이미 있으면 무시)
-    try:
-        cur.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS photos TEXT")
-    except Exception:
-        pass
+    # photos 컬럼 없는 기존 테이블에 추가 (SQLite는 IF NOT EXISTS 미지원이라 컬럼 존재 여부 확인)
+    cur.execute("PRAGMA table_info(records)")
+    existing_cols = {row[1] for row in cur.fetchall()}
+    if "photos" not in existing_cols:
+        try:
+            cur.execute("ALTER TABLE records ADD COLUMN photos TEXT")
+        except Exception:
+            pass
     conn.commit()
     cur.close()
     conn.close()
@@ -86,8 +92,7 @@ async def submit_record(record: Record):
         INSERT INTO records
         (factory, model, position, cno, color, action, defect, defect_sub,
          resp, memo, markers, photos, submitted_at, date)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        RETURNING id
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record.factory, record.model, record.position,
         record.cno, record.color, record.action,
@@ -98,7 +103,7 @@ async def submit_record(record: Record):
         now.isoformat(),
         now.strftime("%Y-%m-%d"),
     ))
-    new_id = cur.fetchone()[0]
+    new_id = cur.lastrowid
     conn.commit()
     cur.close()
     conn.close()
@@ -112,14 +117,14 @@ def get_records(
     limit:   int = Query(200),
 ):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor()
     q = "SELECT * FROM records WHERE 1=1"
     params = []
     if date:
-        q += " AND date=%s"; params.append(date)
+        q += " AND date=?"; params.append(date)
     if factory:
-        q += " AND factory=%s"; params.append(factory)
-    q += " ORDER BY submitted_at DESC LIMIT %s"
+        q += " AND factory=?"; params.append(factory)
+    q += " ORDER BY submitted_at DESC LIMIT ?"
     params.append(limit)
     cur.execute(q, params)
     rows = cur.fetchall()
@@ -140,11 +145,11 @@ def get_summary(
     month: int = Query(datetime.now().month),
 ):
     conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = conn.cursor()
     cur.execute("""
         SELECT date, COUNT(*) as cnt
         FROM records
-        WHERE SUBSTRING(date,1,4)=%s AND SUBSTRING(date,6,2)=%s
+        WHERE substr(date,1,4)=? AND substr(date,6,2)=?
         GROUP BY date
     """, (str(year), str(month).zfill(2)))
     rows = cur.fetchall()
@@ -157,7 +162,7 @@ def get_summary(
 def delete_record(record_id: int):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM records WHERE id=%s", (record_id,))
+    cur.execute("DELETE FROM records WHERE id=?", (record_id,))
     conn.commit()
     cur.close()
     conn.close()
@@ -178,3 +183,23 @@ def delete_all_records():
 @app.get("/health")
 def health():
     return {"status": "ok", "time": datetime.now().isoformat()}
+
+# ── HTML 페이지 라우트 ────────────────────────────────────────────────────────
+@app.get("/")
+def serve_index():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+@app.get("/dashboard")
+def serve_dashboard():
+    return FileResponse(os.path.join(BASE_DIR, "dashboard.html"))
+
+# ── 정적 파일 (CSS/JS 등) ─────────────────────────────────────────────────────
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# ── 직접 실행 진입점 ──────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
