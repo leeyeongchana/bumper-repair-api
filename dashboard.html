@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>범퍼 수정 현황 | 캠스</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#f0f2f7;color:#1e293b;min-height:100vh;}
+.header{background:#fff;border-bottom:4px solid #1a3f8f;padding:10px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.07);}
+.header-left{display:flex;align-items:center;gap:16px;}
+.logo-wrap{height:44px;display:flex;align-items:center;}
+.logo-cams{font-size:22px;font-weight:700;color:#1a3f8f;letter-spacing:-0.3px;font-family:'Noto Sans KR',sans-serif;}
+.logo-txt{font-size:15px;font-weight:700;color:#1a3f8f;}
+.hd{width:1px;height:28px;background:#e2e8f0;}
+.ht{font-size:17px;font-weight:700;color:#1a3f8f;}
+.hs{font-size:11px;color:#64748b;margin-top:1px;}
+.header-right{display:flex;align-items:center;gap:10px;}
+.upd{font-size:11px;color:#94a3b8;}
+.ref-btn{background:#1a3f8f;color:#fff;border:none;padding:7px 15px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.ref-btn:hover{background:#0f2d6e;}
+
+.nav{background:#fff;border-bottom:1px solid #e2e8f0;padding:0 28px;display:flex;}
+.ntab{padding:10px 18px;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;}
+.ntab.on{color:#1a3f8f;border-bottom-color:#1a3f8f;}
+.ntab:hover:not(.on){background:#f8fafc;}
+
+.fbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:8px 28px;display:flex;align-items:center;flex-wrap:wrap;gap:8px 0;}
+.fs{display:flex;align-items:center;gap:7px;padding-right:16px;margin-right:16px;border-right:1px solid #e2e8f0;flex-shrink:0;}
+.fs:last-child{border-right:none;}
+.fl{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.05em;white-space:nowrap;}
+.fbtns{display:flex;gap:4px;flex-wrap:wrap;}
+.fb{padding:5px 11px;font-size:12px;font-weight:600;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;color:#64748b;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .12s;}
+.fb.on{background:#1a3f8f;border-color:#1a3f8f;color:#fff;}
+.fb:hover:not(.on){background:#f0f4ff;border-color:#1a3f8f;color:#1a3f8f;}
+select.fsel{padding:5px 9px;font-size:12px;font-weight:600;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;color:#1a3f8f;font-family:inherit;outline:none;cursor:pointer;display:none;}
+select.fsel.show{display:block;}
+input.fdate{padding:5px 9px;font-size:12px;font-weight:600;border:1.5px solid #e2e8f0;border-radius:7px;background:#fff;color:#1a3f8f;font-family:inherit;outline:none;cursor:pointer;display:none;}
+input.fdate.show{display:block;}
+.fdate-sep{font-size:12px;color:#94a3b8;display:none;margin:0 2px;}
+.fdate-sep.show{display:inline;}
+
+.page{display:none;padding:18px 24px;max-width:1600px;margin:0 auto;}
+.page.on{display:block;}
+
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+.kpi{background:#fff;border-radius:12px;padding:16px 18px;border:1px solid #eaedf2;border-left:4px solid #1a3f8f;}
+.kpi.g{border-left-color:#1a7f4b;}.kpi.r{border-left-color:#e84040;}.kpi.a{border-left-color:#d97706;}.kpi.p{border-left-color:#7c3aed;}
+.kpi-lbl{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;}
+.kpi-n{font-size:28px;font-weight:700;color:#1e293b;line-height:1;}
+.kpi-s{font-size:12px;color:#94a3b8;margin-top:5px;}
+
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px;}
+.sec-title{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.06em;text-transform:uppercase;}
+.tog-btn{font-size:11px;font-weight:600;color:#1a3f8f;cursor:pointer;background:none;border:none;font-family:inherit;}
+
+.collapse-body{overflow:hidden;}
+.row-half{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.row-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
+.ccard{background:#fff;border-radius:12px;padding:18px 20px;border:1px solid #eaedf2;margin-bottom:12px;}
+.ccard-title{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:2px;}
+.ccard-sub{font-size:11px;color:#94a3b8;margin-bottom:12px;}
+
+.fac-grid{display:grid;gap:12px;margin-bottom:12px;}
+.fac-card{background:#fff;border-radius:12px;padding:18px 20px;border:1px solid #eaedf2;}
+.fac-card-hdr{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.fac-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.fac-name{font-size:14px;font-weight:700;}
+.fac-kpi{display:flex;gap:16px;margin-bottom:12px;}
+.fac-kpi-item{display:flex;flex-direction:column;gap:2px;}
+.fac-kpi-val{font-size:20px;font-weight:700;}
+.fac-kpi-lbl{font-size:10px;color:#94a3b8;}
+.model-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.model-chip{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+
+/* 빈 상태 */
+.empty-dash{display:flex;flex-direction:column;align-items:center;padding:80px 20px;color:#94a3b8;text-align:center;}
+.empty-dash .ei{font-size:48px;margin-bottom:16px;}
+.empty-dash .et{font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px;}
+.empty-dash .es{font-size:13px;line-height:1.7;}
+
+.twrap{overflow-x:auto;margin-top:10px;}
+table{width:100%;border-collapse:collapse;}
+th{padding:8px 12px;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.04em;text-align:left;border-bottom:2px solid #f1f5f9;white-space:nowrap;background:#f8fafc;}
+td{padding:9px 12px;font-size:12px;color:#1e293b;border-bottom:1px solid #f8fafc;white-space:nowrap;}
+tr:hover td{background:#f8fafc;}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;}
+.b-fix{background:#e6f5ee;color:#1a7f4b;}.b-swp{background:#fef0ee;color:#e84040;}
+.b-cams{background:#eef3ff;color:#1a3f8f;}.b-kia{background:#fff8ec;color:#d97706;}.b-mix{background:#f5f3ff;color:#7c3aed;}
+
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}.row-4{grid-template-columns:1fr 1fr;}}
+@media(max-width:700px){.kpi-row{grid-template-columns:1fr 1fr;}.row-half,.row-3,.row-4{grid-template-columns:1fr;}.page{padding:12px 10px;}.header,.nav,.fbar{padding-left:12px;padding-right:12px;}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-wrap">
+      <span class="logo-cams">(주) 캠스</span>
+    </div>
+    <div class="hd"></div>
+    <div><div class="ht">범퍼 수정 현황</div><div class="hs">KIA 광주 캠스 상주 품질 현황</div></div>
+  </div>
+  <div class="header-right">
+    <div class="upd" id="upd"></div>
+    <button class="ref-btn" onclick="loadAll()">↻ 새로고침</button>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="ntab on" onclick="showPage('dash',this)">📊 대시보드</div>
+  <div class="ntab" onclick="showPage('photo',this)">📷 사진 기록</div>
+  <div class="ntab" onclick="showPage('rec',this)">📋 상세 기록</div>
+</div>
+
+<div class="fbar">
+  <div class="fs">
+    <span class="fl">기간</span>
+    <div class="fbtns">
+      <button class="fb on" onclick="setR('day',this)">일별</button>
+      <button class="fb" onclick="setR('week',this)">주간</button>
+      <button class="fb" onclick="setR('month',this)">월간</button>
+      <button class="fb" onclick="setR('quarter',this)">분기</button>
+      <button class="fb" onclick="setR('year',this)">연간</button>
+      <button class="fb" onclick="setR('all',this)">전체</button>
+    </div>
+    <!-- 일별: 날짜 1개 -->
+    <input type="date" class="fdate" id="sel-day" onchange="loadAll()">
+    <!-- 주간: 시작~종료 -->
+    <input type="date" class="fdate" id="sel-week-s" onchange="loadAll()">
+    <span class="fdate-sep" id="sep-week">~</span>
+    <input type="date" class="fdate" id="sel-week-e" onchange="loadAll()">
+    <!-- 월간 -->
+    <select class="fsel" id="sel-y-month" onchange="loadAll()"></select>
+    <select class="fsel" id="sel-month" onchange="loadAll()">
+      <option value="1">1월</option><option value="2">2월</option><option value="3">3월</option>
+      <option value="4">4월</option><option value="5">5월</option><option value="6">6월</option>
+      <option value="7">7월</option><option value="8">8월</option><option value="9">9월</option>
+      <option value="10">10월</option><option value="11">11월</option><option value="12">12월</option>
+    </select>
+    <!-- 분기 -->
+    <select class="fsel" id="sel-y-quarter" onchange="loadAll()"></select>
+    <select class="fsel" id="sel-quarter" onchange="loadAll()">
+      <option value="1">1분기 (1~3월)</option>
+      <option value="2">2분기 (4~6월)</option>
+      <option value="3">3분기 (7~9월)</option>
+      <option value="4">4분기 (10~12월)</option>
+    </select>
+    <!-- 연간 -->
+    <select class="fsel" id="sel-year" onchange="loadAll()"></select>
+  </div>
+  <div class="fs">
+    <span class="fl">공장</span>
+    <div class="fbtns" id="fac-btns">
+      <button class="fb on" onclick="setF('',this)">전체</button>
+      <button class="fb" onclick="setF('1공장',this)">1공장</button>
+      <button class="fb" onclick="setF('2공장',this)">2공장</button>
+      <button class="fb" onclick="setF('3공장',this)">3공장</button>
+    </div>
+  </div>
+  <div class="fs" id="model-fs" style="display:none;">
+    <span class="fl">차종</span>
+    <div class="fbtns" id="model-btns"></div>
+  </div>
+  <div class="fs">
+    <span class="fl">조치</span>
+    <div class="fbtns">
+      <button class="fb on" onclick="setA('',this)">전체</button>
+      <button class="fb" onclick="setA('수정',this)">수정</button>
+      <button class="fb" onclick="setA('교환',this)">교환</button>
+    </div>
+  </div>
+  <div class="fs">
+    <span class="fl">귀책처</span>
+    <div class="fbtns">
+      <button class="fb on" onclick="setResp('',this)">전체</button>
+      <button class="fb" onclick="setResp('캠스',this)">캠스</button>
+      <button class="fb" onclick="setResp('기아',this)">기아</button>
+      <button class="fb" onclick="setResp('복합',this)">복합</button>
+    </div>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div class="page on" id="page-dash">
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-lbl">총 처리 건수</div><div class="kpi-n" id="k0">-</div><div class="kpi-s">기간 합계</div></div>
+    <div class="kpi g"><div class="kpi-lbl">수정</div><div class="kpi-n" id="k1">-</div><div class="kpi-s" id="k1s">-</div></div>
+    <div class="kpi r"><div class="kpi-lbl">교환</div><div class="kpi-n" id="k2">-</div><div class="kpi-s" id="k2s">-</div></div>
+    <div class="kpi a"><div class="kpi-lbl">캠스 귀책</div><div class="kpi-n" id="k3">-</div><div class="kpi-s" id="k3s">-</div></div>
+    <div class="kpi p"><div class="kpi-lbl">기아/복합 귀책</div><div class="kpi-n" id="k4">-</div><div class="kpi-s" id="k4s">-</div></div>
+  </div>
+
+  <div id="dash-content">
+    <!-- 데이터 있을 때 렌더 -->
+  </div>
+</div>
+
+<!-- 사진 기록 -->
+<div class="page" id="page-photo">
+  <div class="ccard">
+    <div class="ccard-title">사진 기록</div>
+    <div class="ccard-sub" id="photo-sub">현재 필터 기준 사진이 있는 기록을 표시합니다</div>
+    <div id="photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px;"></div>
+  </div>
+</div>
+
+<!-- 사진 모달 -->
+<div id="photo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;" onclick="closePhotoModal()">
+  <img id="photo-modal-img" style="max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain;">
+  <div id="photo-modal-info" style="color:#fff;font-size:13px;margin-top:12px;text-align:center;"></div>
+</div>
+
+<!-- 상세 기록 -->
+<div class="page" id="page-rec">
+  <div class="ccard">
+    <div class="ccard-title">상세 기록</div>
+    <div class="ccard-sub" id="tbl-sub">-</div>
+    <div class="twrap">
+      <table>
+        <thead><tr>
+          <th>날짜</th><th>시간</th><th>공장</th><th>차종</th><th>구분</th>
+          <th>C/NO</th><th>색상</th><th>조치</th><th>불량유형</th><th>교환부품</th><th>책임구</th><th>비고</th>
+        </tr></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='https://bumper-repair-api.onrender.com';
+
+const CAR_MODELS = {
+  '1공장':['OV1','SP3'],
+  '2공장':['NQ5 PE'],
+  '3공장':['PU','C·PAD']
+};
+const FAC_COLORS = {'1공장':'#1a3f8f','2공장':'#1a7f4b','3공장':'#e84040'};
+const MODEL_COLORS = {
+  'OV1':'#1a3f8f','SP3':'#4a6fbd',
+  'NQ5 PE':'#1a7f4b',
+  'PU':'#e84040','C·PAD':'#f08080'
+};
+
+let curR='day', curF='', curM='', curPage='dash', curAction='', curResp='';
+const CH={};
+
+function buildYearOpts(selId) {
+  const sel = document.getElementById(selId);
+  sel.innerHTML = '';
+  const now = new Date().getFullYear();
+  for(let y=now; y>=2024; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y+'년';
+    sel.appendChild(o);
+  }
+  sel.value = now;
+}
+buildYearOpts('sel-y-month');
+buildYearOpts('sel-y-quarter');
+buildYearOpts('sel-year');
+document.getElementById('sel-month').value = new Date().getMonth()+1;
+document.getElementById('sel-quarter').value = Math.ceil((new Date().getMonth()+1)/3);
+// 일별 기본값: 오늘
+(()=>{const t=new Date(),pad=n=>String(n).padStart(2,'0');
+  document.getElementById('sel-day').value=t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());
+  // 주간: 이번주 월~오늘
+  const mon=new Date(t); mon.setDate(t.getDate()-((t.getDay()||7)-1));
+  document.getElementById('sel-week-s').value=mon.getFullYear()+'-'+pad(mon.getMonth()+1)+'-'+pad(mon.getDate());
+  document.getElementById('sel-week-e').value=t.getFullYear()+'-'+pad(t.getMonth()+1)+'-'+pad(t.getDate());
+})();
+// 일별 기본으로 date picker 표시
+document.getElementById('sel-day').classList.add('show');
+
+function showPage(p,el){
+  curPage=p;
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.page').forEach(pg=>pg.classList.remove('on'));
+  document.getElementById('page-'+p).classList.add('on');
+  if(p==='rec') renderTable(window._data||[]);
+  if(p==='photo') renderPhotoGrid(window._data||[]);
+}
+
+function toggleSec(id,btn){
+  const el=document.getElementById(id);
+  if(!el._open && el._open!==false) el._open=true;
+  el._open=!el._open;
+  el.style.maxHeight=el._open?el.scrollHeight+'px':'0px';
+  el.style.overflow='hidden';
+  el.style.transition='max-height .3s ease';
+  btn.textContent=el._open?'▲ 숨기기':'▼ 펼치기';
+}
+
+function showSelects(range) {
+  ['sel-y-month','sel-month','sel-y-quarter','sel-quarter','sel-year'].forEach(id=>{
+    document.getElementById(id).classList.remove('show');
+  });
+  ['sel-day','sel-week-s','sel-week-e'].forEach(id=>{
+    document.getElementById(id).classList.remove('show');
+  });
+  document.getElementById('sep-week').classList.remove('show');
+
+  if(range==='day'){
+    document.getElementById('sel-day').classList.add('show');
+  } else if(range==='week'){
+    document.getElementById('sel-week-s').classList.add('show');
+    document.getElementById('sep-week').classList.add('show');
+    document.getElementById('sel-week-e').classList.add('show');
+  } else if(range==='month'){
+    document.getElementById('sel-y-month').classList.add('show');
+    document.getElementById('sel-month').classList.add('show');
+  } else if(range==='quarter'){
+    document.getElementById('sel-y-quarter').classList.add('show');
+    document.getElementById('sel-quarter').classList.add('show');
+  } else if(range==='year'){
+    document.getElementById('sel-year').classList.add('show');
+  }
+}
+
+function setR(r,el){
+  curR=r;
+  document.querySelectorAll('.fbar .fs:first-child .fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  showSelects(r);
+  loadAll();
+}
+
+function setA(a,el){
+  curAction=a;
+  el.closest('.fbtns').querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  loadAll();
+}
+
+function setResp(r,el){
+  curResp=r;
+  el.closest('.fbtns').querySelectorAll('.fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  loadAll();
+}
+
+function setF(f,el){
+  curF=f; curM='';
+  document.querySelectorAll('#fac-btns .fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  const mfs=document.getElementById('model-fs');
+  const mbtns=document.getElementById('model-btns');
+  if(f && CAR_MODELS[f]) {
+    mfs.style.display='flex';
+    mbtns.innerHTML='<button class="fb on" onclick="setM(\'\',this)">전체</button>';
+    CAR_MODELS[f].forEach(m=>{
+      const b=document.createElement('button');
+      b.className='fb'; b.textContent=m;
+      b.onclick=function(){setM(m,this);};
+      mbtns.appendChild(b);
+    });
+  } else {
+    mfs.style.display='none';
+    mbtns.innerHTML='';
+  }
+  loadAll();
+}
+
+function setM(m,el){
+  curM=m;
+  document.querySelectorAll('#model-btns .fb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  loadAll();
+}
+
+function filt(raw){
+  const pad=n=>String(n).padStart(2,'0');
+  let d=[...raw];
+  if(curF) d=d.filter(r=>r.factory===curF);
+  if(curM) d=d.filter(r=>r.model===curM);
+  if(curAction) d=d.filter(r=>r.action===curAction);
+  if(curResp) d=d.filter(r=>r.resp===curResp);
+
+  if(curR==='day'){
+    const sel=document.getElementById('sel-day').value;
+    return sel ? d.filter(r=>r.date===sel) : d;
+  }
+  if(curR==='week'){
+    const ws=document.getElementById('sel-week-s').value;
+    const we=document.getElementById('sel-week-e').value;
+    return d.filter(r=>r.date>=ws&&r.date<=we);
+  }
+  if(curR==='month'){
+    const y=document.getElementById('sel-y-month').value;
+    const mv=document.getElementById('sel-month').value;
+    return d.filter(r=>r.date?.startsWith(y+'-'+pad(mv)));
+  }
+  if(curR==='quarter'){
+    const y=document.getElementById('sel-y-quarter').value;
+    const q=parseInt(document.getElementById('sel-quarter').value);
+    const sm=(q-1)*3+1, em=q*3;
+    return d.filter(r=>{
+      if(!r.date?.startsWith(y)) return false;
+      const mo=parseInt(r.date.slice(5,7));
+      return mo>=sm && mo<=em;
+    });
+  }
+  if(curR==='year'){
+    const y=document.getElementById('sel-year').value;
+    return d.filter(r=>r.date?.startsWith(y));
+  }
+  return d;
+}
+
+async function loadAll(){
+  let raw=[];
+  try{
+    const res=await fetch(API+'/records?limit=5000');
+    if(res.ok) raw=await res.json();
+  }catch(e){}
+
+  window._raw=raw;
+  window._data=filt(raw);
+  document.getElementById('upd').textContent='업데이트: '+new Date().toLocaleTimeString('ko-KR');
+
+  const data=window._data;
+
+  if(!raw.length){
+    // 데이터 없음 상태
+    renderKPI([]);
+    document.getElementById('dash-content').innerHTML=`
+      <div class="empty-dash">
+        <div class="ei">📋</div>
+        <div class="et">아직 데이터가 없습니다</div>
+        <div class="es">상주원 앱에서 범퍼 수정 내역을 입력하면<br>이 화면에 실시간으로 집계됩니다.</div>
+      </div>`;
+    return;
+  }
+
+  renderDashContent(raw, data);
+  if(curPage==='rec') renderTable(data);
+  if(curPage==='photo') renderPhotoGrid(data);
+}
+
+function renderDashContent(raw, data){
+  document.getElementById('dash-content').innerHTML=`
+    <!-- 공장별 -->
+    <div class="sec-hdr">
+      <div class="sec-title">공장별 현황</div>
+      <button class="tog-btn" onclick="toggleSec('fac-body',this)">▲ 숨기기</button>
+    </div>
+    <div class="collapse-body" id="fac-body">
+      <div class="ccard">
+        <div class="ccard-title">공장별 일별 처리량 종합 (수정+교환)</div>
+        <div class="ccard-sub">날짜별 전체 처리 건수 · 공장별 누적</div>
+        <canvas id="c-trend" height="70"></canvas>
+      </div>
+      <div class="fac-grid" id="fac-cards"></div>
+    </div>
+    <!-- 불량유형 -->
+    <div class="sec-hdr">
+      <div class="sec-title">불량 유형별</div>
+      <button class="tog-btn" onclick="toggleSec('def-body',this)">▲ 숨기기</button>
+    </div>
+    <div class="collapse-body" id="def-body">
+      <div class="row-half">
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">불량 유형별 건수</div><div class="ccard-sub">유형별 발생 현황</div><canvas id="c-defect" height="130"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">교환 부품별 TOP 8</div><div class="ccard-sub">교환 시 주요 부품</div><canvas id="c-parts" height="130"></canvas></div>
+      </div>
+    </div>
+    <!-- 조치사항 -->
+    <div class="sec-hdr">
+      <div class="sec-title">조치사항</div>
+      <button class="tog-btn" onclick="toggleSec('act-body',this)">▲ 숨기기</button>
+    </div>
+    <div class="collapse-body" id="act-body">
+      <div class="row-4">
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">수정 vs 교환</div><div class="ccard-sub">전체 비율</div><canvas id="c-action" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 수정/교환</div><div class="ccard-sub">공장별 세부</div><canvas id="c-act-fac" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">월별 수정/교환 추이</div><div class="ccard-sub">월별 건수 변화</div><canvas id="c-monthly" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">FRT vs RR</div><div class="ccard-sub">부위별 비율</div><canvas id="c-pos" height="150"></canvas></div>
+      </div>
+    </div>
+    <!-- 책임구 -->
+    <div class="sec-hdr">
+      <div class="sec-title">책임구 (알카 귀책처)</div>
+      <button class="tog-btn" onclick="toggleSec('resp-body',this)">▲ 숨기기</button>
+    </div>
+    <div class="collapse-body" id="resp-body">
+      <div class="row-3">
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">귀책처 비율</div><div class="ccard-sub">캠스 / 기아 / 복합</div><canvas id="c-resp" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 귀책처</div><div class="ccard-sub">공장별 분포</div><canvas id="c-resp-fac" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">월별 귀책처 추이</div><div class="ccard-sub">귀책처 월별 변화</div><canvas id="c-resp-mon" height="150"></canvas></div>
+      </div>
+    </div>`;
+
+  renderKPI(data);
+  renderTrend(data);
+  renderFacCards(data);
+  renderAction(data);
+  renderActFac(data);
+  renderMonthly(raw);
+  renderPos(data);
+  renderDefect(data);
+  renderParts(data);
+  renderResp(data);
+  renderRespFac(data);
+  renderRespMon(raw);
+}
+
+function mk(id,type,labels,datasets,opts={}){
+  if(CH[id]) CH[id].destroy();
+  const el=document.getElementById(id); if(!el) return;
+  CH[id]=new Chart(el,{type,data:{labels,datasets},options:{
+    responsive:true,
+    plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:9,padding:7}}},
+    scales:type==='bar'||type==='line'?{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}}:{},
+    ...opts
+  }});
+}
+
+function renderKPI(d){
+  const t=d.length,fix=d.filter(r=>r.action==='수정').length,swp=d.filter(r=>r.action==='교환').length;
+  const cams=d.filter(r=>r.resp==='캠스').length,kia=d.filter(r=>r.resp==='기아'||r.resp==='복합').length;
+  document.getElementById('k0').textContent=t.toLocaleString();
+  document.getElementById('k1').textContent=fix.toLocaleString();document.getElementById('k1s').textContent=t?Math.round(fix/t*100)+'%':'-';
+  document.getElementById('k2').textContent=swp.toLocaleString();document.getElementById('k2s').textContent=t?Math.round(swp/t*100)+'%':'-';
+  document.getElementById('k3').textContent=cams.toLocaleString();document.getElementById('k3s').textContent=t?Math.round(cams/t*100)+'%':'-';
+  document.getElementById('k4').textContent=kia.toLocaleString();document.getElementById('k4s').textContent=t?Math.round(kia/t*100)+'%':'-';
+}
+
+function getDates(d){return[...new Set(d.map(r=>r.date||''))].filter(Boolean).sort();}
+
+function renderTrend(data){
+  const dates=getDates(data);
+  const fs=curF?[curF]:['1공장','2공장','3공장'];
+  mk('c-trend','bar',dates.map(d=>d.slice(5)),
+    fs.map(f=>({label:f,data:dates.map(d=>data.filter(r=>r.date===d&&r.factory===f).length),backgroundColor:FAC_COLORS[f],borderRadius:2,stack:'s'})),
+    {scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{beginAtZero:true,stacked:true,ticks:{stepSize:5,font:{size:10}}}}}
+  );
+}
+
+function renderFacCards(data){
+  const container=document.getElementById('fac-cards');
+  const fs=curF?[curF]:['1공장','2공장','3공장'];
+  const cols=fs.length===1?'1fr':fs.length===2?'1fr 1fr':'1fr 1fr 1fr';
+  container.style.gridTemplateColumns=cols;
+  container.innerHTML='';
+  fs.forEach(f=>{
+    const fd=data.filter(r=>r.factory===f);
+    const t=fd.length,fix=fd.filter(r=>r.action==='수정').length,swp=fd.filter(r=>r.action==='교환').length;
+    const models=CAR_MODELS[f];
+    const col=FAC_COLORS[f];
+    const canvasId='c-fac-'+f.replace('공장','');
+    const div=document.createElement('div');
+    div.className='fac-card';
+    div.innerHTML=`
+      <div class="fac-card-hdr">
+        <div class="fac-dot" style="background:${col}"></div>
+        <div class="fac-name" style="color:${col}">${f}</div>
+      </div>
+      <div class="fac-kpi">
+        <div class="fac-kpi-item"><div class="fac-kpi-val">${t.toLocaleString()}</div><div class="fac-kpi-lbl">총 건수</div></div>
+        <div class="fac-kpi-item"><div class="fac-kpi-val" style="color:#1a7f4b">${fix}</div><div class="fac-kpi-lbl">수정</div></div>
+        <div class="fac-kpi-item"><div class="fac-kpi-val" style="color:#e84040">${swp}</div><div class="fac-kpi-lbl">교환</div></div>
+      </div>
+      <div class="model-chips">
+        ${models.map(m=>{
+          const mc=fd.filter(r=>r.model===m).length;
+          return `<span class="model-chip" style="background:${MODEL_COLORS[m]}22;color:${MODEL_COLORS[m]}">${m} ${mc}건</span>`;
+        }).join('')}
+      </div>
+      <canvas id="${canvasId}" height="100"></canvas>`;
+    container.appendChild(div);
+    setTimeout(()=>{
+      const dates=getDates(fd);
+      mk(canvasId,'bar',dates.map(d=>d.slice(5)),
+        models.map(m=>({
+          label:m,
+          data:dates.map(d=>fd.filter(r=>r.date===d&&r.model===m).length),
+          backgroundColor:MODEL_COLORS[m]+'cc',borderRadius:2,stack:'s'
+        })),
+        {plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:7,padding:5}}},
+         scales:{x:{stacked:true,ticks:{font:{size:9},maxRotation:45}},y:{beginAtZero:true,stacked:true,ticks:{font:{size:9},stepSize:1}}}}
+      );
+    },50);
+  });
+}
+
+function renderAction(d){
+  mk('c-action','doughnut',['수정','교환'],[{data:[d.filter(r=>r.action==='수정').length,d.filter(r=>r.action==='교환').length],backgroundColor:['#1a7f4b','#e84040'],borderWidth:0}]);
+}
+function renderActFac(d){
+  const fs=['1공장','2공장','3공장'];
+  mk('c-act-fac','bar',fs,[
+    {label:'수정',data:fs.map(f=>d.filter(r=>r.factory===f&&r.action==='수정').length),backgroundColor:'#1a7f4b',borderRadius:4},
+    {label:'교환',data:fs.map(f=>d.filter(r=>r.factory===f&&r.action==='교환').length),backgroundColor:'#e84040',borderRadius:4},
+  ]);
+}
+function renderMonthly(raw){
+  const fd=curF?raw.filter(r=>r.factory===curF):raw;
+  const years=[...new Set(fd.map(r=>r.date?.slice(0,4)))].filter(Boolean).sort();
+  const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+  const colors=['#1a3f8f','#1a7f4b','#e84040','#d97706'];
+  const datasets=[];
+  years.forEach((y,yi)=>{
+    datasets.push({label:y+'년 수정',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='수정').length),backgroundColor:colors[yi%4]+'99',borderRadius:3,stack:y});
+    datasets.push({label:y+'년 교환',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='교환').length),backgroundColor:colors[yi%4],borderRadius:3,stack:y});
+  });
+  mk('c-monthly','bar',months.map(m=>m+'월'),datasets,{scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}}});
+}
+function renderPos(d){
+  mk('c-pos','doughnut',['FRT','RR'],[{data:['FRT','RR'].map(p=>d.filter(r=>r.position===p).length),backgroundColor:['#1a3f8f','#e84040'],borderWidth:0}]);
+}
+function renderDefect(d){
+  const types=['찍힘','긁힘','파손','도장불량','조립불량','고무링말림','티이물','이종','기타'];
+  mk('c-defect','bar',types,[{label:'건수',data:types.map(t=>d.filter(r=>r.defect===t).length),backgroundColor:['#1a3f8f','#1a7f4b','#e84040','#d97706','#7c3aed','#0891b2','#db2777','#65a30d','#94a3b8'],borderRadius:4}],
+    {indexAxis:'y',plugins:{legend:{display:false}}});
+}
+function renderParts(d){
+  const sd=d.filter(r=>r.action==='교환'&&r.defect_sub);
+  const pm={};sd.forEach(r=>{pm[r.defect_sub]=(pm[r.defect_sub]||0)+1;});
+  const s=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  if(!s.length)return;
+  mk('c-parts','bar',s.map(([k])=>k.length>14?k.slice(0,13)+'…':k),[{label:'건수',data:s.map(([,v])=>v),backgroundColor:'#1a3f8f',borderRadius:4}],
+    {indexAxis:'y',plugins:{legend:{display:false}}});
+}
+function renderResp(d){
+  mk('c-resp','doughnut',['캠스','기아','복합'],[{data:['캠스','기아','복합'].map(r=>d.filter(e=>e.resp===r).length),backgroundColor:['#1a3f8f','#d97706','#7c3aed'],borderWidth:0}]);
+}
+function renderRespFac(d){
+  const fs=['1공장','2공장','3공장'];
+  mk('c-resp-fac','bar',fs,[
+    {label:'캠스',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='캠스').length),backgroundColor:'#1a3f8f',borderRadius:4},
+    {label:'기아',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='기아').length),backgroundColor:'#d97706',borderRadius:4},
+    {label:'복합',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='복합').length),backgroundColor:'#7c3aed',borderRadius:4},
+  ]);
+}
+function renderRespMon(raw){
+  const fd=curF?raw.filter(r=>r.factory===curF):raw;
+  const y=new Date().getFullYear();
+  const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
+  mk('c-resp-mon','line',months.map(m=>m+'월'),[
+    {label:'캠스',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.resp==='캠스').length),borderColor:'#1a3f8f',tension:.3,pointRadius:3},
+    {label:'기아',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.resp==='기아').length),borderColor:'#d97706',tension:.3,pointRadius:3},
+    {label:'복합',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.resp==='복합').length),borderColor:'#7c3aed',tension:.3,pointRadius:3},
+  ]);
+}
+
+function renderPhotoGrid(data){
+  const withPhotos = data.filter(r=>r.photos && r.photos.length>0);
+  const sub = document.getElementById('photo-sub');
+  const grid = document.getElementById('photo-grid');
+  sub.textContent = `사진 있는 기록 ${withPhotos.length}건 / 전체 ${data.length}건`;
+  if(!withPhotos.length){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:#94a3b8;">
+      <div style="font-size:40px;margin-bottom:12px;">📷</div>
+      <div style="font-size:15px;font-weight:700;color:#64748b;margin-bottom:6px;">사진이 없습니다</div>
+      <div style="font-size:13px;">상주원 앱에서 사진을 첨부하면 여기에 표시됩니다.</div>
+    </div>`;
+    return;
+  }
+  const sorted=[...withPhotos].sort((a,b)=>b.submitted_at?.localeCompare(a.submitted_at));
+  const FC={'1공장':'#1a3f8f','2공장':'#1a7f4b','3공장':'#e84040'};
+  const AC={'수정':'#1a7f4b','교환':'#e84040'};
+  grid.innerHTML = sorted.map(r=>{
+    const fc=FC[r.factory]||'#94a3b8';
+    const ac=AC[r.action]||'#64748b';
+    const imgs=r.photos.map((p,i)=>`
+      <img src="${p}" onclick="openPhotoModal('${p.replace(/'/g,"\\'")}','${r.factory} ${r.model} ${r.position} | ${r.defect} | C/NO:${r.cno}')" 
+        style="width:${r.photos.length===1?'100%':'calc(50% - 4px)'};aspect-ratio:4/3;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .15s;"
+        onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">`).join('');
+    return `
+    <div style="background:#fff;border-radius:12px;border:1px solid #eaedf2;overflow:hidden;">
+      <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:11px;font-weight:700;color:${fc};background:${fc}18;padding:2px 8px;border-radius:10px;">${r.factory}</span>
+        <span style="font-size:11px;font-weight:700;">${r.model} ${r.position}</span>
+        <span style="font-size:11px;color:${ac};font-weight:700;margin-left:auto;">${r.action}</span>
+      </div>
+      <div style="padding:8px;display:flex;gap:8px;flex-wrap:wrap;">${imgs}</div>
+      <div style="padding:8px 14px 12px;font-size:11px;color:#64748b;">
+        <span style="font-weight:700;color:#1e293b;">${r.defect}</span>${r.defect_sub?' · '+r.defect_sub:''}<br>
+        C/NO: ${r.cno} · 색상: ${r.color} · 귀책: ${r.resp} · ${r.date||''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPhotoModal(src, info){
+  event.stopPropagation();
+  const m=document.getElementById('photo-modal');
+  document.getElementById('photo-modal-img').src=src;
+  document.getElementById('photo-modal-info').textContent=info;
+  m.style.display='flex';
+}
+
+function closePhotoModal(){
+  document.getElementById('photo-modal').style.display='none';
+}
+
+function renderTable(data){
+  document.getElementById('tbl-sub').textContent='총 '+data.length+'건 · 최신순';
+  const s=[...data].sort((a,b)=>b.submitted_at?.localeCompare(a.submitted_at));
+  const tb=document.getElementById('tbl-body');
+  if(!s.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:#94a3b8;">데이터 없음</td></tr>';return;}
+  tb.innerHTML=s.map(r=>`<tr>
+    <td>${(r.date||'').slice(0,10)}</td><td>${(r.submitted_at||'').slice(11,16)}</td>
+    <td>${r.factory||''}</td><td>${r.model||''}</td><td>${r.position||''}</td>
+    <td style="font-family:monospace;font-weight:600">${r.cno||''}</td><td>${r.color||''}</td>
+    <td><span class="badge ${r.action==='수정'?'b-fix':'b-swp'}">${r.action||''}</span></td>
+    <td>${r.defect||''}</td>
+    <td style="color:#1a3f8f;font-weight:500;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${r.defect_sub||'-'}</td>
+    <td><span class="badge ${r.resp==='캠스'?'b-cams':r.resp==='기아'?'b-kia':'b-mix'}">${r.resp||''}</span></td>
+    <td style="color:#64748b">${r.memo||'-'}</td>
+  </tr>`).join('');
+}
+
+loadAll();
+setInterval(loadAll,60000);
+</script>
+</body>
+</html>
