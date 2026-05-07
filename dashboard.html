@@ -479,7 +479,7 @@ function renderDashContent(raw, data){
     <div class="collapse-body" id="def-body">
       <div class="row-half">
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">불량 유형별 건수</div><div class="ccard-sub">유형별 발생 현황</div><canvas id="c-defect" height="130"></canvas></div>
-        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">교환 부품별 TOP 8</div><div class="ccard-sub">교환 시 주요 부품</div><canvas id="c-parts" height="130"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">교환 부품별 순위</div><div class="ccard-sub">교환 시 주요 부품</div><canvas id="c-parts" height="130"></canvas></div>
       </div>
     </div>
     <!-- 조치사항 -->
@@ -522,7 +522,7 @@ function renderDashContent(raw, data){
   renderRespMon(raw);
 }
 
-function mk(id,type,labels,datasets,opts={}){
+function mk(id,type,labels,datasets,opts={},plugins=[]){
   if(CH[id]) CH[id].destroy();
   const el=document.getElementById(id); if(!el) return;
   CH[id]=new Chart(el,{type,data:{labels,datasets},options:{
@@ -530,8 +530,29 @@ function mk(id,type,labels,datasets,opts={}){
     plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:9,padding:7}}},
     scales:type==='bar'||type==='line'?{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}}:{},
     ...opts
-  }});
+  },plugins});
 }
+
+const barEndLabelPlugin={
+  id:'barEndLabel',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart;
+    chart.data.datasets.forEach((dataset,di)=>{
+      const meta=chart.getDatasetMeta(di);
+      meta.data.forEach((bar,i)=>{
+        const val=dataset.data[i];
+        if(val==null||val===0) return;
+        ctx.save();
+        ctx.fillStyle='#1e293b';
+        ctx.font='800 13px "Noto Sans KR", sans-serif';
+        ctx.textBaseline='middle';
+        ctx.textAlign='left';
+        ctx.fillText(val.toLocaleString(), bar.x+6, bar.y);
+        ctx.restore();
+      });
+    });
+  }
+};
 
 function renderKPI(d){
   const t=d.length,fix=d.filter(r=>r.action==='수정').length,swp=d.filter(r=>r.action==='교환').length;
@@ -811,15 +832,17 @@ function renderPos(d){
 function renderDefect(d){
   const types=['찍힘','긁힘','파손','도장불량','조립불량','고무링말림','티이물','이종','기타'];
   mk('c-defect','bar',types,[{label:'건수',data:types.map(t=>d.filter(r=>r.defect===t).length),backgroundColor:['#1a3f8f','#1a7f4b','#e84040','#d97706','#7c3aed','#0891b2','#db2777','#65a30d','#94a3b8'],borderRadius:4}],
-    {indexAxis:'y',plugins:{legend:{display:false}}});
+    {indexAxis:'y',plugins:{legend:{display:false}},layout:{padding:{right:50}}},
+    [barEndLabelPlugin]);
 }
 function renderParts(d){
   const sd=d.filter(r=>r.action==='교환'&&r.defect_sub);
   const pm={};sd.forEach(r=>{pm[r.defect_sub]=(pm[r.defect_sub]||0)+1;});
-  const s=Object.entries(pm).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const s=Object.entries(pm).sort((a,b)=>b[1]-a[1]);
   if(!s.length)return;
   mk('c-parts','bar',s.map(([k])=>k.length>14?k.slice(0,13)+'…':k),[{label:'건수',data:s.map(([,v])=>v),backgroundColor:'#1a3f8f',borderRadius:4}],
-    {indexAxis:'y',plugins:{legend:{display:false}}});
+    {indexAxis:'y',plugins:{legend:{display:false}},layout:{padding:{right:50}}},
+    [barEndLabelPlugin]);
 }
 function renderResp(d){
   mk('c-resp','doughnut',['캠스','기아','복합'],[{data:['캠스','기아','복합'].map(r=>d.filter(e=>e.resp===r).length),backgroundColor:['#1a3f8f','#d97706','#7c3aed'],borderWidth:0}]);
