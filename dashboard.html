@@ -887,13 +887,25 @@ function renderPhotoGrid(data){
   const sorted=[...withPhotos].sort((a,b)=>b.submitted_at?.localeCompare(a.submitted_at));
   const FC={'1공장':'#1a3f8f','2공장':'#1a7f4b','3공장':'#e84040'};
   const AC={'수정':'#1a7f4b','교환':'#e84040'};
+  // 사진 데이터를 글로벌 캐시에 저장 (HTML 속성에 base64 통째로 박지 않음)
+  window._photoData = {};
+  sorted.forEach(r=>{ window._photoData[r.id] = r.photos; });
   grid.innerHTML = sorted.map(r=>{
     const fc=FC[r.factory]||'#94a3b8';
     const ac=AC[r.action]||'#64748b';
-    const imgs=r.photos.map((p,i)=>`
-      <img src="${p}" onclick="openPhotoModal('${p.replace(/'/g,"\\'")}','${r.factory} ${r.model} ${r.position} | ${r.defect} | C/NO:${r.cno}')" 
-        style="width:${r.photos.length===1?'100%':'calc(50% - 4px)'};aspect-ratio:4/3;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .15s;"
-        onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">`).join('');
+    const info=`${r.factory} ${r.model} ${r.position} | ${r.defect} | C/NO:${r.cno}`;
+    const imgs=r.photos.map((p,i)=>{
+      // 유효한 data:image/* URL 인지 확인
+      const isValidDataUrl=typeof p==='string' && /^data:image\/[a-z]+;base64,/.test(p);
+      const isHttpUrl=typeof p==='string' && /^https?:\/\//.test(p);
+      const safeSrc=isValidDataUrl||isHttpUrl?p:'';
+      return `
+      <img src="${safeSrc}" data-rid="${r.id}" data-pidx="${i}" data-info="${info.replace(/"/g,'&quot;')}"
+        onclick="openPhotoFromImg(this)"
+        onerror="this.style.background='#fee2e2';this.style.padding='12px';this.alt='이미지 손상 또는 형식 오류';this.removeAttribute('src');"
+        style="width:${r.photos.length===1?'100%':'calc(50% - 4px)'};aspect-ratio:4/3;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .15s;background:#f1f5f9;"
+        onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">`;
+    }).join('');
     return `
     <div style="background:#fff;border-radius:12px;border:1px solid #eaedf2;overflow:hidden;">
       <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
@@ -910,8 +922,20 @@ function renderPhotoGrid(data){
   }).join('');
 }
 
+function openPhotoFromImg(img){
+  if(window.event) window.event.stopPropagation();
+  const rid=img.dataset.rid;
+  const idx=parseInt(img.dataset.pidx,10)||0;
+  const info=img.dataset.info||'';
+  const photos=(window._photoData||{})[rid];
+  if(!photos||!photos[idx]) return;
+  const m=document.getElementById('photo-modal');
+  document.getElementById('photo-modal-img').src=photos[idx];
+  document.getElementById('photo-modal-info').textContent=info;
+  m.style.display='flex';
+}
 function openPhotoModal(src, info){
-  event.stopPropagation();
+  if(window.event) window.event.stopPropagation();
   const m=document.getElementById('photo-modal');
   document.getElementById('photo-modal-img').src=src;
   document.getElementById('photo-modal-info').textContent=info;
