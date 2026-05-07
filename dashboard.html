@@ -561,7 +561,14 @@ function renderDashContent(raw, data){
       <div class="row-4">
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">수정 vs 교환</div><div class="ccard-sub">전체 비율</div><canvas id="c-action" height="150"></canvas></div>
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 수정/교환</div><div class="ccard-sub">공장별 세부</div><canvas id="c-act-fac" height="150"></canvas></div>
-        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">월별 수정/교환 추이</div><div class="ccard-sub">월별 건수 변화</div><canvas id="c-monthly" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0">
+          <div class="ccard-title">월별 수정/교환 추이</div>
+          <div class="ccard-sub">월별 건수 변화 (각각)</div>
+          <div style="font-size:10px;font-weight:700;color:#1a7f4b;margin-top:8px;letter-spacing:.04em;">수정</div>
+          <div style="position:relative;height:90px;"><canvas id="c-monthly-fix"></canvas></div>
+          <div style="font-size:10px;font-weight:700;color:#e84040;margin-top:8px;letter-spacing:.04em;">교환</div>
+          <div style="position:relative;height:90px;"><canvas id="c-monthly-swp"></canvas></div>
+        </div>
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">FRT vs RR</div><div class="ccard-sub">부위별 비율</div><canvas id="c-pos" height="150"></canvas></div>
       </div>
     </div>
@@ -698,6 +705,27 @@ const doughnutCenterLabelPlugin={
       ctx.shadowBlur=2;
       ctx.fillText(val.toLocaleString(), pos.x, pos.y);
       ctx.restore();
+    });
+  }
+};
+
+const lineDataLabelPlugin={
+  id:'lineDataLabel',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart;
+    chart.data.datasets.forEach((dataset,di)=>{
+      const meta=chart.getDatasetMeta(di);
+      meta.data.forEach((point,i)=>{
+        const val=dataset.data[i];
+        if(val==null||val===0) return;
+        ctx.save();
+        ctx.fillStyle='#1e293b';
+        ctx.font='800 11px "Noto Sans KR", sans-serif';
+        ctx.textAlign='center';
+        ctx.textBaseline='bottom';
+        ctx.fillText(val.toLocaleString(), point.x, point.y - 6);
+        ctx.restore();
+      });
     });
   }
 };
@@ -958,15 +986,30 @@ function renderMonthly(raw){
   const fd=curF?raw.filter(r=>r.factory===curF):raw;
   const years=[...new Set(fd.map(r=>r.date?.slice(0,4)))].filter(Boolean).sort();
   const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
-  const colors=['#1a3f8f','#1a7f4b','#e84040','#d97706'];
-  const datasets=[];
-  years.forEach((y,yi)=>{
-    datasets.push({label:y+'년 수정',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='수정').length),backgroundColor:colors[yi%4]+'99',borderRadius:3,stack:y});
-    datasets.push({label:y+'년 교환',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='교환').length),backgroundColor:colors[yi%4],borderRadius:3,stack:y});
-  });
-  mk('c-monthly','bar',months.map(m=>m+'월'),datasets,
-    {scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}},layout:{padding:{top:18}}},
-    [barTopLabelPlugin]);
+  const yearColors=['#1a3f8f','#1a7f4b','#e84040','#d97706'];
+
+  function buildDatasets(action){
+    const baseColor = action==='수정' ? '#1a7f4b' : '#e84040';
+    return years.map((y,yi)=>{
+      const col = years.length===1 ? baseColor : yearColors[yi%4];
+      return {
+        label: y+'년',
+        data: months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action===action).length),
+        borderColor: col,
+        backgroundColor: col+'22',
+        tension:.3, pointRadius:3, pointBackgroundColor:col, borderWidth:2
+      };
+    });
+  }
+
+  const lineOpts = {
+    layout:{padding:{top:18,right:8}},
+    scales:{y:{beginAtZero:true,ticks:{font:{size:10}}},x:{ticks:{font:{size:10}}}},
+    plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:9,padding:7}}}
+  };
+
+  mk('c-monthly-fix','line',months.map(m=>m+'월'),buildDatasets('수정'),lineOpts,[lineDataLabelPlugin]);
+  mk('c-monthly-swp','line',months.map(m=>m+'월'),buildDatasets('교환'),lineOpts,[lineDataLabelPlugin]);
 }
 function renderPos(d){
   mk('c-pos','doughnut',['FRT','RR'],
@@ -995,7 +1038,10 @@ function renderParts(d){
     [barEndLabelPlugin]);
 }
 function renderResp(d){
-  mk('c-resp','doughnut',['캠스','기아','복합'],[{data:['캠스','기아','복합'].map(r=>d.filter(e=>e.resp===r).length),backgroundColor:['#1a3f8f','#d97706','#7c3aed'],borderWidth:0}]);
+  mk('c-resp','doughnut',['캠스','기아','복합'],
+    [{data:['캠스','기아','복합'].map(r=>d.filter(e=>e.resp===r).length),backgroundColor:['#1a3f8f','#d97706','#7c3aed'],borderWidth:0}],
+    {},
+    [doughnutCenterLabelPlugin]);
 }
 function renderRespFac(d){
   const fs=['1공장','2공장','3공장'];
@@ -1003,7 +1049,9 @@ function renderRespFac(d){
     {label:'캠스',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='캠스').length),backgroundColor:'#1a3f8f',borderRadius:4},
     {label:'기아',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='기아').length),backgroundColor:'#d97706',borderRadius:4},
     {label:'복합',data:fs.map(f=>d.filter(r=>r.factory===f&&r.resp==='복합').length),backgroundColor:'#7c3aed',borderRadius:4},
-  ]);
+  ],
+  {layout:{padding:{top:18}}},
+  [barTopLabelPlugin]);
 }
 function renderRespMon(raw){
   const fd=curF?raw.filter(r=>r.factory===curF):raw;
