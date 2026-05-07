@@ -418,6 +418,12 @@ function onPartOther(sel,id){document.getElementById(id).className='extra'+(sel.
 // 사진 - canvas로 압축 후 base64 저장
 let photoB64 = [];
 let photoPending = []; // 진행 중인 압축 Promise 추적
+function setSubmitDisabled(reason){
+  const btn=document.getElementById('submit-btn');
+  if(!btn) return;
+  if(reason){btn.disabled=true;btn.dataset.lockReason=reason;}
+  else if(!isSubmitting){btn.disabled=false;delete btn.dataset.lockReason;}
+}
 function onPhoto(input){
   const files=Array.from(input.files).slice(0,3);
   photoFiles=files;
@@ -425,33 +431,46 @@ function onPhoto(input){
   photoPending=[];
   const preview=document.getElementById('photo-preview');
   preview.innerHTML='';
-  files.forEach(f=>{
+  if(!files.length) return;
+  // 압축 중에는 제출 버튼 차단
+  setSubmitDisabled('compress');
+  let okCount=0, failCount=0;
+  files.forEach((f,idx)=>{
     const p=new Promise(resolve=>{
       const reader=new FileReader();
       reader.onload=e=>{
-        // 미리보기
         const img=document.createElement('img');
-        img.className='photo-thumb';img.src=e.target.result;preview.appendChild(img);
-        // 압축 (최대 1200px, quality 0.8)
+        img.className='photo-thumb';
+        img.src=e.target.result;
+        img.dataset.idx=idx;
+        preview.appendChild(img);
         const canvas=document.createElement('canvas');
         const image=new Image();
         image.onload=()=>{
-          const max=1200;
-          let w=image.width,h=image.height;
-          if(w>max){h=Math.round(h*max/w);w=max;}
-          if(h>max){w=Math.round(w*max/h);h=max;}
-          canvas.width=w;canvas.height=h;
-          canvas.getContext('2d').drawImage(image,0,0,w,h);
-          photoB64.push(canvas.toDataURL('image/jpeg',0.8));
+          try{
+            const max=1200;
+            let w=image.width,h=image.height;
+            if(w>max){h=Math.round(h*max/w);w=max;}
+            if(h>max){w=Math.round(w*max/h);h=max;}
+            canvas.width=w;canvas.height=h;
+            canvas.getContext('2d').drawImage(image,0,0,w,h);
+            photoB64.push(canvas.toDataURL('image/jpeg',0.8));
+            okCount++;
+          }catch(err){failCount++;}
           resolve();
         };
-        image.onerror=()=>resolve();
+        image.onerror=()=>{failCount++;resolve();};
         image.src=e.target.result;
       };
-      reader.onerror=()=>resolve();
+      reader.onerror=()=>{failCount++;resolve();};
       reader.readAsDataURL(f);
     });
     photoPending.push(p);
+  });
+  // 모든 파일 처리 끝나면 버튼 잠금 해제 + 결과 토스트
+  Promise.all(photoPending).then(()=>{
+    setSubmitDisabled(null);
+    if(failCount>0) showToast(`사진 ${failCount}장 압축 실패`);
   });
 }
 
