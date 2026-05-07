@@ -26,31 +26,38 @@ def init_db():
     cur = conn.cursor()
     cur.execute("""
         CREATE TABLE IF NOT EXISTS records (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            factory      TEXT,
-            model        TEXT,
-            position     TEXT,
-            cno          TEXT,
-            color        TEXT,
-            action       TEXT,
-            defect       TEXT,
-            defect_sub   TEXT,
-            resp         TEXT,
-            memo         TEXT,
-            markers      TEXT,
-            photos       TEXT,
-            submitted_at TEXT,
-            date         TEXT
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            factory           TEXT,
+            model             TEXT,
+            position          TEXT,
+            cno               TEXT,
+            color             TEXT,
+            action            TEXT,
+            defect            TEXT,
+            defect_sub        TEXT,
+            resp              TEXT,
+            memo              TEXT,
+            markers           TEXT,
+            photos            TEXT,
+            submitted_at      TEXT,
+            date              TEXT,
+            submitted_by_id   TEXT,
+            submitted_by_name TEXT
         )
     """)
-    # photos 컬럼 없는 기존 테이블에 추가 (SQLite는 IF NOT EXISTS 미지원이라 컬럼 존재 여부 확인)
+    # 기존 테이블에 누락된 컬럼이 있으면 ALTER로 추가
     cur.execute("PRAGMA table_info(records)")
     existing_cols = {row[1] for row in cur.fetchall()}
-    if "photos" not in existing_cols:
-        try:
-            cur.execute("ALTER TABLE records ADD COLUMN photos TEXT")
-        except Exception:
-            pass
+    for col, typ in [
+        ("photos",            "TEXT"),
+        ("submitted_by_id",   "TEXT"),
+        ("submitted_by_name", "TEXT"),
+    ]:
+        if col not in existing_cols:
+            try:
+                cur.execute(f"ALTER TABLE records ADD COLUMN {col} {typ}")
+            except Exception:
+                pass
     conn.commit()
     cur.close()
     conn.close()
@@ -69,18 +76,20 @@ app.add_middleware(
 )
 
 class Record(BaseModel):
-    factory:    str = ""
-    model:      str = ""
-    position:   str = ""
-    cno:        str = ""
-    color:      str = ""
-    action:     str = ""
-    defect:     str = ""
-    defect_sub: str = ""
-    resp:       str = ""
-    memo:       str = ""
-    markers:    list = []
-    photos:     list = []
+    factory:           str = ""
+    model:             str = ""
+    position:          str = ""
+    cno:               str = ""
+    color:             str = ""
+    action:            str = ""
+    defect:            str = ""
+    defect_sub:        str = ""
+    resp:              str = ""
+    memo:              str = ""
+    markers:           list = []
+    photos:            list = []
+    submitted_by_id:   str = ""
+    submitted_by_name: str = ""
 
 # ── 제출 ───────────────────────────────────────────────────────────────────────
 @app.post("/submit")
@@ -91,8 +100,9 @@ async def submit_record(record: Record):
     cur.execute("""
         INSERT INTO records
         (factory, model, position, cno, color, action, defect, defect_sub,
-         resp, memo, markers, photos, submitted_at, date)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         resp, memo, markers, photos, submitted_at, date,
+         submitted_by_id, submitted_by_name)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record.factory, record.model, record.position,
         record.cno, record.color, record.action,
@@ -102,6 +112,8 @@ async def submit_record(record: Record):
         json.dumps(record.photos, ensure_ascii=False),
         now.isoformat(),
         now.strftime("%Y-%m-%d"),
+        record.submitted_by_id,
+        record.submitted_by_name,
     ))
     new_id = cur.lastrowid
     conn.commit()

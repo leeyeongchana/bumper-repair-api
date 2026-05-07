@@ -279,7 +279,7 @@ tr:hover td{background:#f8fafc;}
       <table>
         <thead><tr>
           <th>날짜</th><th>시간</th><th>공장</th><th>차종</th><th>구분</th>
-          <th>C/NO</th><th>색상</th><th>조치</th><th>불량유형</th><th>교환부품</th><th>책임구</th><th>비고</th>
+          <th>C/NO</th><th>색상</th><th>조치</th><th>불량유형</th><th>교환부품</th><th>책임구</th><th>비고</th><th>등록자</th>
         </tr></thead>
         <tbody id="tbl-body"></tbody>
       </table>
@@ -1104,7 +1104,7 @@ function renderTable(data){
   document.getElementById('tbl-sub').textContent='총 '+data.length+'건 · 최신순';
   const s=[...data].sort((a,b)=>b.submitted_at?.localeCompare(a.submitted_at));
   const tb=document.getElementById('tbl-body');
-  if(!s.length){tb.innerHTML='<tr><td colspan="12" style="text-align:center;padding:24px;color:#94a3b8;">데이터 없음</td></tr>';return;}
+  if(!s.length){tb.innerHTML='<tr><td colspan="13" style="text-align:center;padding:24px;color:#94a3b8;">데이터 없음</td></tr>';return;}
   tb.innerHTML=s.map(r=>`<tr>
     <td>${(r.date||'').slice(0,10)}</td><td>${(r.submitted_at||'').slice(11,16)}</td>
     <td>${r.factory||''}</td><td>${r.model||''}</td><td>${r.position||''}</td>
@@ -1114,6 +1114,7 @@ function renderTable(data){
     <td style="color:#1a3f8f;font-weight:500;max-width:150px;overflow:hidden;text-overflow:ellipsis;">${r.defect_sub||'-'}</td>
     <td><span class="badge ${r.resp==='캠스'?'b-cams':r.resp==='기아'?'b-kia':'b-mix'}">${r.resp||''}</span></td>
     <td style="color:#64748b">${r.memo||'-'}</td>
+    <td style="font-weight:600;color:#1a3f8f">${r.submitted_by_name||'-'}</td>
   </tr>`).join('');
 }
 
