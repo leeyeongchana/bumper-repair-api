@@ -117,6 +117,23 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 /* 토스트 */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(70px);background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;padding:12px 24px;border-radius:50px;white-space:nowrap;pointer-events:none;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;}
 .toast.show{transform:translateX(-50%) translateY(0);}
+
+/* 로그인 */
+.lg-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;min-height:calc(100vh - 90px);background:#f4f5f7;}
+.lg-card{background:#fff;border-radius:18px;padding:36px 28px 28px;width:100%;max-width:380px;box-shadow:0 2px 16px rgba(15,52,96,0.08);border:1px solid #eaedf2;}
+.lg-icon{text-align:center;font-size:40px;margin-bottom:12px;}
+.lg-title{text-align:center;font-size:20px;font-weight:700;color:#1e293b;margin-bottom:4px;}
+.lg-sub{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:24px;}
+.lg-inp{width:100%;padding:13px 14px;font-size:15px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;outline:none;font-family:inherit;margin-bottom:10px;-webkit-appearance:none;}
+.lg-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08);}
+.lg-err{color:#e84040;font-size:12px;min-height:16px;margin-bottom:8px;text-align:center;font-weight:600;}
+.lg-btn{width:100%;padding:14px;background:#0f3460;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:opacity .15s;}
+.lg-btn:active{opacity:.88;}
+.lg-btn:disabled{background:#9ca3af;cursor:not-allowed;}
+/* 사용자 칩 / 로그아웃 (헤더용) */
+.user-chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;background:rgba(255,255,255,0.18);color:#fff;padding:5px 10px;border-radius:14px;}
+.logout-btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:11px;font-weight:700;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.logout-btn:active{background:rgba(255,255,255,0.12);}
 </style>
 </head>
 <body>
@@ -125,7 +142,11 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   <div class="at">범퍼 수정일지</div>
   <div class="hr">
     <div class="db" id="top-date"></div>
-    <div class="fb" id="fac-badge" onclick="goSetup()">공장 선택</div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <div class="user-chip" id="user-info" style="display:none;"></div>
+      <button class="logout-btn" id="logout-btn" onclick="doLogout()" style="display:none;">로그아웃</button>
+      <div class="fb" id="fac-badge" onclick="goSetup()" style="display:none;">공장 선택</div>
+    </div>
   </div>
   <div class="tabs" id="tabs" style="display:none;">
     <div class="tab active" id="tab-input" onclick="showTab('input')">입력</div>
@@ -134,8 +155,25 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   </div>
 </div>
 
+<!-- 로그인 화면 -->
+<div class="lg-screen" id="login-screen" style="display:none;">
+  <div class="lg-card">
+    <div class="lg-icon">🔐</div>
+    <div class="lg-title">로그인</div>
+    <div class="lg-sub">회사 사번으로 로그인하세요</div>
+    <input class="lg-inp" id="login-empid" type="text" placeholder="사번"
+      autocomplete="username" inputmode="numeric"
+      onkeypress="if(event.key==='Enter') document.getElementById('login-pw').focus();">
+    <input class="lg-inp" id="login-pw" type="password" placeholder="비밀번호"
+      autocomplete="current-password"
+      onkeypress="if(event.key==='Enter') doLogin();">
+    <div class="lg-err" id="login-err"></div>
+    <button class="lg-btn" id="login-btn" onclick="doLogin()">로그인</button>
+  </div>
+</div>
+
 <!-- 공장 선택 -->
-<div class="ss" id="setup-screen">
+<div class="ss" id="setup-screen" style="display:none;">
   <div style="font-size:48px;margin-bottom:18px;">🏭</div>
   <div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:8px;">소속 공장을 선택하세요</div>
   <div style="font-size:13px;color:#94a3b8;text-align:center;line-height:1.7;margin-bottom:32px;">한 번 선택하면 이후 입력 시<br>자동으로 적용됩니다</div>
@@ -307,6 +345,93 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 
 <script>
 const API = 'http://localhost:8000';
+const LS_AUTH_KEY = 'bumper_employee';
+
+// ── 로그인 / 세션 ────────────────────────────────────────────────────────────
+function getStoredEmployee(){
+  try { return JSON.parse(localStorage.getItem(LS_AUTH_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+function saveEmployee(emp){
+  // 클라이언트 측 마지막 방어선 — 민감 필드 한 번 더 차단
+  const safe = {};
+  const blockHints = ['resident','rrn','ssn','registration','socialsecurity','regnumber','regno'];
+  for(const k in emp){
+    const kl = k.toLowerCase().replace(/_/g,'');
+    if(blockHints.some(h => kl.includes(h))) continue;
+    safe[k] = emp[k];
+  }
+  localStorage.setItem(LS_AUTH_KEY, JSON.stringify(safe));
+}
+async function doLogin(){
+  const empId = document.getElementById('login-empid').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if(!empId || !pw){
+    errEl.textContent = '사번과 비밀번호를 모두 입력해주세요';
+    return;
+  }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = '로그인 중...';
+  try {
+    const res = await fetch(API+'/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({employeeId: empId, password: pw})
+    });
+    const data = await res.json();
+    if(data.authenticated && data.employee){
+      saveEmployee({...data.employee, employeeId: empId});
+      onLoggedIn();
+    } else {
+      errEl.textContent = data.error || '로그인 실패';
+    }
+  } catch(e) {
+    errEl.textContent = '네트워크 오류 — 서버 연결 확인';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?')) return;
+  localStorage.removeItem(LS_AUTH_KEY);
+  // 화면 초기화
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('form-screen').style.display = 'none';
+  document.getElementById('list-screen').style.display = 'none';
+  document.getElementById('hist-screen').style.display = 'none';
+  document.getElementById('tabs').style.display = 'none';
+  document.getElementById('user-info').style.display = 'none';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('fac-badge').style.display = 'none';
+  document.getElementById('login-empid').value = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-err').textContent = '';
+  curF = '';
+}
+function onLoggedIn(){
+  const emp = getStoredEmployee();
+  if(!emp) return;
+  document.getElementById('login-screen').style.display = 'none';
+  const ui = document.getElementById('user-info');
+  ui.textContent = `${emp.name||'-'}${emp.department?' · '+emp.department:''}`;
+  ui.style.display = 'inline-flex';
+  document.getElementById('logout-btn').style.display = 'inline-block';
+  document.getElementById('fac-badge').style.display = 'inline-block';
+  document.getElementById('setup-screen').style.display = 'flex';
+}
+function checkAuthOnLoad(){
+  const emp = getStoredEmployee();
+  if(emp){
+    onLoggedIn();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+}
 const COLORS = {
   '1공장':['SWP','BU3','FSB','KDG','KLG','EBB','OVR','MRM','IEG','IEB','ISG','ISM','BJG','GBG','1D','M3R','PLU','B3A'],
   '2공장':['SWP','KDG','FSB','BB2','C7A','HRB','JUG','KLG','MGG','UD','KLT'],
@@ -763,6 +888,9 @@ async function loadHistory(){
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+// 페이지 로드 시 인증 상태 확인 (스크립트 끝부분 - 모든 함수가 정의된 뒤)
+checkAuthOnLoad();
 </script>
 </body>
 </html>

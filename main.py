@@ -184,6 +184,66 @@ def delete_all_records():
 def health():
     return {"status": "ok", "time": datetime.now().isoformat()}
 
+# ── 사번 로그인 프록시 ────────────────────────────────────────────────────────
+# selfservice.icams.co.kr 의 ERP 인증 API를 서버에서 대리 호출.
+# API 키와 주민등록번호 같은 민감 정보는 클라이언트로 노출하지 않음.
+import urllib.request as _urlreq
+import urllib.error as _urlerr
+
+ICAMS_BASE = os.environ.get("ICAMS_BASE", "https://selfservice.icams.co.kr")
+ICAMS_API_KEY = os.environ.get("ICAMS_API_KEY", "6147")
+SENSITIVE_KEY_HINTS = ("resident", "rrn", "ssn", "registration", "regnumber", "regno", "socialsecurity")
+
+def _strip_sensitive(d):
+    if not isinstance(d, dict):
+        return d
+    cleaned = {}
+    for k, v in d.items():
+        kl = k.lower().replace("_", "")
+        if any(h in kl for h in SENSITIVE_KEY_HINTS):
+            continue
+        cleaned[k] = _strip_sensitive(v) if isinstance(v, dict) else v
+    return cleaned
+
+class LoginPayload(BaseModel):
+    employeeId: str = ""
+    password:   str = ""
+
+@app.post("/auth/login")
+async def auth_login(payload: LoginPayload):
+    if not payload.employeeId or not payload.password:
+        return {"authenticated": False, "error": "사번과 비밀번호를 입력해주세요"}
+
+    body = json.dumps({
+        "employeeId": payload.employeeId,
+        "password":   payload.password,
+    }).encode("utf-8")
+    req = _urlreq.Request(
+        ICAMS_BASE + "/api/erp/login",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key":    ICAMS_API_KEY,
+        },
+        method="POST",
+    )
+    try:
+        with _urlreq.urlopen(req, timeout=10) as resp:
+            raw = resp.read().decode("utf-8")
+            data = json.loads(raw) if raw else {}
+    except _urlerr.HTTPError as e:
+        if e.code == 401:
+            return {"authenticated": False, "error": "사번 또는 비밀번호가 올바르지 않습니다"}
+        return {"authenticated": False, "error": f"인증 서버 오류 ({e.code})"}
+    except Exception:
+        return {"authenticated": False, "error": "인증 서버 통신 실패"}
+
+    if not isinstance(data, dict) or not data.get("authenticated"):
+        return {"authenticated": False, "error": data.get("error") if isinstance(data, dict) else "인증 실패"}
+
+    employee = _strip_sensitive(data.get("employee") or {})
+    return {"authenticated": True, "employee": employee}
+
 # ── HTML 페이지 라우트 ────────────────────────────────────────────────────────
 @app.get("/")
 def serve_index():
