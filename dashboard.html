@@ -52,7 +52,7 @@ input.fdate.show{display:block;}
 .kpi.a{background:#fde1be;border-color:#f7c98a;border-left-color:#d97706;box-shadow:0 1px 3px rgba(138,86,10,0.08);}
 .kpi.p{background:#e7d8f7;border-color:#c8b1e8;border-left-color:#7c3aed;box-shadow:0 1px 3px rgba(82,35,167,0.08);}
 .kpi-lbl{font-size:12px;font-weight:800;color:#475569;letter-spacing:.06em;margin-bottom:8px;text-transform:uppercase;}
-.kpi-n{font-size:40px;font-weight:900;color:#0f2d6e;line-height:1;letter-spacing:-0.5px;}
+.kpi-n{font-size:52px;font-weight:900;color:#0f2d6e;line-height:1;letter-spacing:-0.7px;}
 .kpi.g .kpi-n{color:#0d4f2f;}
 .kpi.r .kpi-n{color:#a82d2d;}
 .kpi.a .kpi-n{color:#8a560a;}
@@ -70,6 +70,8 @@ input.fdate.show{display:block;}
 .ccard{background:#fff;border-radius:12px;padding:18px 20px;border:1px solid #eaedf2;margin-bottom:12px;}
 .ccard-title{font-size:13px;font-weight:700;color:#1e293b;margin-bottom:2px;}
 .ccard-sub{font-size:11px;color:#94a3b8;margin-bottom:12px;}
+#trend-title{font-size:26px;font-weight:700;color:#1e293b;margin-bottom:6px;letter-spacing:-0.4px;}
+#trend-sub{font-size:15px;font-weight:700;color:#475569;margin-bottom:14px;letter-spacing:.02em;}
 
 .fac-grid{display:grid;gap:12px;margin-bottom:12px;}
 .fac-card{background:#fff;border-radius:12px;padding:18px 20px;border:1px solid #eaedf2;}
@@ -84,12 +86,15 @@ input.fdate.show{display:block;}
 .model-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:14px;font-size:11.5px;font-weight:600;border:1px solid transparent;}
 .model-chip .mc-name{font-weight:700;}
 .model-chip .mc-count{font-weight:700;}
-.model-sections{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-.model-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:10px;align-items:center;}
+.model-sections{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;}
+.model-section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;}
+.model-section-row{display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:10px;align-items:center;}
 .model-section-name{font-size:14px;font-weight:800;padding-right:10px;border-right:2px solid #cbd5e1;line-height:1.1;}
 .ms-stat{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .ms-val{font-size:18px;font-weight:800;line-height:1;}
 .ms-lbl{font-size:10px;color:#64748b;font-weight:700;letter-spacing:.04em;}
+.mini-chart-wrap{position:relative;height:80px;margin-top:8px;}
+.mini-chart-wrap.tall{height:100px;}
 
 /* 빈 상태 */
 .empty-dash{display:flex;flex-direction:column;align-items:center;padding:80px 20px;color:#94a3b8;text-align:center;}
@@ -576,6 +581,35 @@ const centerDataLabelPlugin={
   }
 };
 
+const miniCenterDataLabelPlugin={
+  id:'miniCenterDataLabel',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart;
+    chart.data.datasets.forEach((dataset,di)=>{
+      const meta=chart.getDatasetMeta(di);
+      meta.data.forEach((bar,i)=>{
+        const val=dataset.data[i];
+        if(val==null||val===0) return;
+        const barH=Math.abs(bar.base-bar.y);
+        ctx.save();
+        ctx.font='800 12px "Noto Sans KR", sans-serif';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        if(barH>=16){
+          ctx.fillStyle='#fff';
+          ctx.shadowColor='rgba(0,0,0,0.4)';
+          ctx.shadowBlur=2;
+          ctx.fillText(val.toLocaleString(), bar.x, bar.y+barH/2);
+        } else {
+          ctx.fillStyle='#1e293b';
+          ctx.fillText(val.toLocaleString(), bar.x, bar.y-6);
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+
 function renderTrend(data){
   const dates=getDates(data);
   const fs=curF?[curF]:['1공장','2공장','3공장'];
@@ -585,7 +619,7 @@ function renderTrend(data){
   if(curR==='all'||curR==='year'){
     const startDate=dates[0]||'-';
     const endDate=dates[dates.length-1]||'-';
-    if(titleEl) titleEl.textContent='공장별 처리량 종합 (수정 vs 교환)';
+    if(titleEl) titleEl.textContent='공장별 범퍼 수정 현황 (수정/교환)';
     if(subEl) subEl.textContent=`조회기간: ${startDate} ~ ${endDate}`;
 
     const fixCounts=fs.map(f=>data.filter(r=>r.factory===f&&r.action==='수정').length);
@@ -666,9 +700,45 @@ function renderFacCards(data){
     const t=fd.length,fix=fd.filter(r=>r.action==='수정').length,swp=fd.filter(r=>r.action==='교환').length;
     const models=CAR_MODELS[f];
     const col=FAC_COLORS[f];
-    const canvasId='c-fac-'+f.replace('공장','');
+    const fixColor=FAC_FIX_COLORS[f];
+    const swpColor=FAC_SWP_COLORS[f];
+    const facKey=f.replace('공장','');
     const div=document.createElement('div');
     div.className='fac-card';
+
+    let bodyHtml;
+    if(models.length>1){
+      bodyHtml=`
+        <div class="model-sections">
+          ${models.map((m,i)=>{
+            const md=fd.filter(r=>r.model===m);
+            const mt=md.length;
+            const mfix=md.filter(r=>r.action==='수정').length;
+            const mswp=md.filter(r=>r.action==='교환').length;
+            const mcol=MODEL_COLORS[m];
+            return `
+              <div class="model-section" style="border-left:4px solid ${mcol};">
+                <div class="model-section-row">
+                  <div class="model-section-name" style="color:${mcol}">${m}</div>
+                  <div class="ms-stat"><div class="ms-val">${mt.toLocaleString()}</div><div class="ms-lbl">총 건수</div></div>
+                  <div class="ms-stat"><div class="ms-val" style="color:#1a7f4b">${mfix.toLocaleString()}</div><div class="ms-lbl">수정</div></div>
+                  <div class="ms-stat"><div class="ms-val" style="color:#e84040">${mswp.toLocaleString()}</div><div class="ms-lbl">교환</div></div>
+                </div>
+                <div class="mini-chart-wrap"><canvas id="c-fac-${facKey}-${i}"></canvas></div>
+              </div>`;
+          }).join('')}
+        </div>`;
+    } else {
+      bodyHtml=`
+        <div class="model-chips">
+          ${models.map(m=>{
+            const mc=fd.filter(r=>r.model===m).length;
+            return `<span class="model-chip" style="background:${MODEL_COLORS[m]}1a;color:${MODEL_COLORS[m]};border-color:${MODEL_COLORS[m]}55;"><span class="mc-name">${m}</span><span class="mc-count">${mc}건</span></span>`;
+          }).join('')}
+        </div>
+        <div class="mini-chart-wrap tall"><canvas id="c-fac-${facKey}"></canvas></div>`;
+    }
+
     div.innerHTML=`
       <div class="fac-card-hdr">
         <div class="fac-dot" style="background:${col}"></div>
@@ -679,45 +749,56 @@ function renderFacCards(data){
         <div class="fac-kpi-item"><div class="fac-kpi-val" style="color:#1a7f4b">${fix}</div><div class="fac-kpi-lbl">수정</div></div>
         <div class="fac-kpi-item"><div class="fac-kpi-val" style="color:#e84040">${swp}</div><div class="fac-kpi-lbl">교환</div></div>
       </div>
-      ${models.length>1 ? `
-      <div class="model-sections">
-        ${models.map(m=>{
+      ${bodyHtml}`;
+    container.appendChild(div);
+
+    setTimeout(()=>{
+      if(models.length>1){
+        models.forEach((m,i)=>{
           const md=fd.filter(r=>r.model===m);
-          const mt=md.length;
           const mfix=md.filter(r=>r.action==='수정').length;
           const mswp=md.filter(r=>r.action==='교환').length;
-          const mcol=MODEL_COLORS[m];
-          return `
-            <div class="model-section" style="border-left:4px solid ${mcol};">
-              <div class="model-section-name" style="color:${mcol}">${m}</div>
-              <div class="ms-stat"><div class="ms-val">${mt.toLocaleString()}</div><div class="ms-lbl">총 건수</div></div>
-              <div class="ms-stat"><div class="ms-val" style="color:#1a7f4b">${mfix.toLocaleString()}</div><div class="ms-lbl">수정</div></div>
-              <div class="ms-stat"><div class="ms-val" style="color:#e84040">${mswp.toLocaleString()}</div><div class="ms-lbl">교환</div></div>
-            </div>`;
-        }).join('')}
-      </div>
-      ` : `
-      <div class="model-chips">
-        ${models.map(m=>{
-          const mc=fd.filter(r=>r.model===m).length;
-          return `<span class="model-chip" style="background:${MODEL_COLORS[m]}1a;color:${MODEL_COLORS[m]};border-color:${MODEL_COLORS[m]}55;"><span class="mc-name">${m}</span><span class="mc-count">${mc}건</span></span>`;
-        }).join('')}
-      </div>
-      `}
-      <canvas id="${canvasId}" height="100"></canvas>`;
-    container.appendChild(div);
-    setTimeout(()=>{
-      const dates=getDates(fd);
-      mk(canvasId,'bar',dates.map(d=>d.slice(5)),
-        models.map(m=>({
-          label:m,
-          data:dates.map(d=>fd.filter(r=>r.date===d&&r.model===m).length),
-          backgroundColor:MODEL_COLORS[m]+'cc',borderRadius:2,stack:'s'
-        })),
-        {plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:7,padding:5}}},
-         scales:{x:{stacked:true,ticks:{font:{size:9},maxRotation:45}},y:{beginAtZero:true,stacked:true,ticks:{font:{size:9},stepSize:1}}}}
-      );
+          renderModelMiniBar(`c-fac-${facKey}-${i}`, mfix, mswp, fixColor, swpColor);
+        });
+      } else {
+        const mfix=fd.filter(r=>r.action==='수정').length;
+        const mswp=fd.filter(r=>r.action==='교환').length;
+        renderModelMiniBar(`c-fac-${facKey}`, mfix, mswp, fixColor, swpColor);
+      }
     },50);
+  });
+}
+
+function renderModelMiniBar(canvasId, fixCount, swpCount, fixColor, swpColor){
+  if(CH[canvasId]) CH[canvasId].destroy();
+  const el=document.getElementById(canvasId);
+  if(!el) return;
+  CH[canvasId]=new Chart(el,{
+    type:'bar',
+    data:{
+      labels:['수정','교환'],
+      datasets:[{
+        data:[fixCount,swpCount],
+        backgroundColor:[fixColor,swpColor],
+        borderRadius:5,
+        borderSkipped:false,
+        categoryPercentage:0.7,
+        barPercentage:0.85
+      }]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>ctx.parsed.y.toLocaleString()+'건'}}
+      },
+      scales:{
+        x:{ticks:{font:{size:11,weight:'700'},color:'#475569'},grid:{display:false}},
+        y:{beginAtZero:true,ticks:{font:{size:9}}}
+      }
+    },
+    plugins:[miniCenterDataLabelPlugin]
   });
 }
 
