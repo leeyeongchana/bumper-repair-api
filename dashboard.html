@@ -73,8 +73,10 @@ input.fdate.show{display:block;}
 .fac-kpi-item{display:flex;flex-direction:column;gap:2px;}
 .fac-kpi-val{font-size:20px;font-weight:700;}
 .fac-kpi-lbl{font-size:10px;color:#94a3b8;}
-.model-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
-.model-chip{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;}
+.model-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.model-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:14px;font-size:11.5px;font-weight:600;border:1px solid transparent;}
+.model-chip .mc-name{font-weight:700;}
+.model-chip .mc-count{font-weight:700;}
 
 /* 빈 상태 */
 .empty-dash{display:flex;flex-direction:column;align-items:center;padding:80px 20px;color:#94a3b8;text-align:center;}
@@ -452,8 +454,8 @@ function renderDashContent(raw, data){
     </div>
     <div class="collapse-body" id="fac-body">
       <div class="ccard">
-        <div class="ccard-title">공장별 일별 처리량 종합 (수정+교환)</div>
-        <div class="ccard-sub">날짜별 전체 처리 건수 · 공장별 누적</div>
+        <div class="ccard-title" id="trend-title">공장별 일별 처리량 종합 (수정+교환)</div>
+        <div class="ccard-sub" id="trend-sub">날짜별 전체 처리 건수 · 공장별 누적</div>
         <canvas id="c-trend" height="70"></canvas>
       </div>
       <div class="fac-grid" id="fac-cards"></div>
@@ -535,10 +537,39 @@ function getDates(d){return[...new Set(d.map(r=>r.date||''))].filter(Boolean).so
 function renderTrend(data){
   const dates=getDates(data);
   const fs=curF?[curF]:['1공장','2공장','3공장'];
-  mk('c-trend','bar',dates.map(d=>d.slice(5)),
-    fs.map(f=>({label:f,data:dates.map(d=>data.filter(r=>r.date===d&&r.factory===f).length),backgroundColor:FAC_COLORS[f],borderRadius:2,stack:'s'})),
-    {scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{beginAtZero:true,stacked:true,ticks:{stepSize:5,font:{size:10}}}}}
-  );
+  const titleEl=document.getElementById('trend-title');
+  const subEl=document.getElementById('trend-sub');
+
+  if(curR==='all'||curR==='year'){
+    const startDate=dates[0]||'-';
+    const endDate=dates[dates.length-1]||'-';
+    if(titleEl) titleEl.textContent='공장별 처리량 종합 (수정+교환)';
+    if(subEl) subEl.textContent=`조회기간: ${startDate} ~ ${endDate}`;
+
+    const counts=fs.map(f=>data.filter(r=>r.factory===f).length);
+    mk('c-trend','bar',fs,[{
+      label:'전체 (수정+교환)',
+      data:counts,
+      backgroundColor:fs.map(f=>FAC_COLORS[f]),
+      borderRadius:6,
+      barPercentage:0.55,
+      categoryPercentage:0.5
+    }],{
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y.toLocaleString()+'건'}}},
+      scales:{
+        x:{ticks:{font:{size:13,weight:'700'}}},
+        y:{beginAtZero:true,ticks:{font:{size:11}}}
+      }
+    });
+  } else {
+    if(titleEl) titleEl.textContent='공장별 일별 처리량 종합 (수정+교환)';
+    if(subEl) subEl.textContent='날짜별 전체 처리 건수 · 공장별 누적';
+
+    mk('c-trend','bar',dates.map(d=>d.slice(5)),
+      fs.map(f=>({label:f,data:dates.map(d=>data.filter(r=>r.date===d&&r.factory===f).length),backgroundColor:FAC_COLORS[f],borderRadius:2,stack:'s'})),
+      {scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{beginAtZero:true,stacked:true,ticks:{stepSize:5,font:{size:10}}}}}
+    );
+  }
 }
 
 function renderFacCards(data){
@@ -568,7 +599,7 @@ function renderFacCards(data){
       <div class="model-chips">
         ${models.map(m=>{
           const mc=fd.filter(r=>r.model===m).length;
-          return `<span class="model-chip" style="background:${MODEL_COLORS[m]}22;color:${MODEL_COLORS[m]}">${m} ${mc}건</span>`;
+          return `<span class="model-chip" style="background:${MODEL_COLORS[m]}1a;color:${MODEL_COLORS[m]};border-color:${MODEL_COLORS[m]}55;"><span class="mc-name">${m}</span><span class="mc-count">${mc}건</span></span>`;
         }).join('')}
       </div>
       <canvas id="${canvasId}" height="100"></canvas>`;
