@@ -247,14 +247,14 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
     </div>
     <div class="card">
       <div class="sl">불량 사진 <span class="sl-badge">선택</span></div>
-      <div class="photo-zone" onclick="document.getElementById('photo-input').click()">
+      <div class="photo-zone" onclick="openPhotoPicker()">
         <div style="font-size:24px;">📷</div>
         <div class="photo-text">사진 촬영 / 선택</div>
         <div class="photo-sub">최대 3장 · 탭하여 추가</div>
         <div class="photo-preview" id="photo-preview"></div>
       </div>
       <div id="photo-status" style="font-size:12px;font-weight:700;margin-top:6px;text-align:center;min-height:16px;"></div>
-      <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="onPhoto(this)">
+      <div id="photo-input-wrap" style="display:none;"></div>
     </div>
     <div class="card">
       <div class="sl">비고 <span class="sl-badge">선택</span></div>
@@ -426,6 +426,19 @@ function setSubmitDisabled(reason){
   if(!btn) return;
   if(reason){btn.disabled=true;btn.dataset.lockReason=reason;}
   else if(!isSubmitting){btn.disabled=false;delete btn.dataset.lockReason;}
+}
+// 매 클릭마다 새로운 file input 생성 - 모바일/일부 브라우저에서 재선택 안 되는 이슈 회피
+function openPhotoPicker(){
+  const wrap=document.getElementById('photo-input-wrap');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='image/*';
+  input.multiple=true;
+  input.onchange=function(){onPhoto(this);};
+  wrap.appendChild(input);
+  input.click();
 }
 function setPhotoStatus(text, color){
   const el=document.getElementById('photo-status');
