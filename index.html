@@ -305,7 +305,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'https://bumper-repair-api.onrender.com';
+const API = 'http://localhost:8000';
 const COLORS = {
   '1공장':['SWP','BU3','FSB','KDG','KLG','EBB','OVR','MRM','IEG','IEB','ISG','ISM','BJG','GBG','1D','M3R','PLU','B3A'],
   '2공장':['SWP','KDG','FSB','BB2','C7A','HRB','JUG','KLG','MGG','UD','KLT'],
@@ -417,33 +417,41 @@ function onPartOther(sel,id){document.getElementById(id).className='extra'+(sel.
 
 // 사진 - canvas로 압축 후 base64 저장
 let photoB64 = [];
+let photoPending = []; // 진행 중인 압축 Promise 추적
 function onPhoto(input){
   const files=Array.from(input.files).slice(0,3);
   photoFiles=files;
   photoB64=[];
+  photoPending=[];
   const preview=document.getElementById('photo-preview');
   preview.innerHTML='';
   files.forEach(f=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      // 미리보기
-      const img=document.createElement('img');
-      img.className='photo-thumb';img.src=e.target.result;preview.appendChild(img);
-      // 압축 (최대 1200px, quality 0.8)
-      const canvas=document.createElement('canvas');
-      const image=new Image();
-      image.onload=()=>{
-        const max=1200;
-        let w=image.width,h=image.height;
-        if(w>max){h=Math.round(h*max/w);w=max;}
-        if(h>max){w=Math.round(w*max/h);h=max;}
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(image,0,0,w,h);
-        photoB64.push(canvas.toDataURL('image/jpeg',0.8));
+    const p=new Promise(resolve=>{
+      const reader=new FileReader();
+      reader.onload=e=>{
+        // 미리보기
+        const img=document.createElement('img');
+        img.className='photo-thumb';img.src=e.target.result;preview.appendChild(img);
+        // 압축 (최대 1200px, quality 0.8)
+        const canvas=document.createElement('canvas');
+        const image=new Image();
+        image.onload=()=>{
+          const max=1200;
+          let w=image.width,h=image.height;
+          if(w>max){h=Math.round(h*max/w);w=max;}
+          if(h>max){w=Math.round(w*max/h);h=max;}
+          canvas.width=w;canvas.height=h;
+          canvas.getContext('2d').drawImage(image,0,0,w,h);
+          photoB64.push(canvas.toDataURL('image/jpeg',0.8));
+          resolve();
+        };
+        image.onerror=()=>resolve();
+        image.src=e.target.result;
       };
-      image.src=e.target.result;
-    };
-    reader.readAsDataURL(f);
+      reader.onerror=()=>resolve();
+      reader.readAsDataURL(f);
+    });
+    photoPending.push(p);
   });
 }
 
@@ -495,6 +503,10 @@ async function submitForm(){
   btn.classList.add('loading');
 
   try {
+    // 사진 압축이 진행 중이면 완료까지 대기
+    if(photoPending.length){
+      await Promise.all(photoPending);
+    }
     const res = await fetch(API+'/submit', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -530,6 +542,7 @@ function resetForm(){
   document.getElementById('photo-preview').innerHTML='';
   photoFiles=[];
   photoB64=[];
+  photoPending=[];
   curAct='';
   document.getElementById('act-fix').className='act';
   document.getElementById('act-swp').className='act';
