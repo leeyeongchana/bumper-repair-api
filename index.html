@@ -253,6 +253,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         <div class="photo-sub">최대 3장 · 탭하여 추가</div>
         <div class="photo-preview" id="photo-preview"></div>
       </div>
+      <div id="photo-status" style="font-size:12px;font-weight:700;margin-top:6px;text-align:center;min-height:16px;"></div>
       <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="onPhoto(this)">
     </div>
     <div class="card">
@@ -424,6 +425,12 @@ function setSubmitDisabled(reason){
   if(reason){btn.disabled=true;btn.dataset.lockReason=reason;}
   else if(!isSubmitting){btn.disabled=false;delete btn.dataset.lockReason;}
 }
+function setPhotoStatus(text, color){
+  const el=document.getElementById('photo-status');
+  if(!el) return;
+  el.textContent=text||'';
+  el.style.color=color||'#94a3b8';
+}
 function onPhoto(input){
   const files=Array.from(input.files).slice(0,3);
   photoFiles=files;
@@ -431,9 +438,11 @@ function onPhoto(input){
   photoPending=[];
   const preview=document.getElementById('photo-preview');
   preview.innerHTML='';
+  setPhotoStatus('','#94a3b8');
   if(!files.length) return;
-  // 압축 중에는 제출 버튼 차단
+  // 압축 중에는 제출 버튼 차단 + 시각 피드백
   setSubmitDisabled('compress');
+  setPhotoStatus(`⏳ 사진 ${files.length}장 압축 중...`,'#94a3b8');
   let okCount=0, failCount=0;
   files.forEach((f,idx)=>{
     const p=new Promise(resolve=>{
@@ -456,21 +465,27 @@ function onPhoto(input){
             canvas.getContext('2d').drawImage(image,0,0,w,h);
             photoB64.push(canvas.toDataURL('image/jpeg',0.8));
             okCount++;
-          }catch(err){failCount++;}
+          }catch(err){failCount++;console.error('compress error',err);}
           resolve();
         };
-        image.onerror=()=>{failCount++;resolve();};
+        image.onerror=(e)=>{failCount++;console.error('image load error',e);resolve();};
         image.src=e.target.result;
       };
-      reader.onerror=()=>{failCount++;resolve();};
+      reader.onerror=(e)=>{failCount++;console.error('reader error',e);resolve();};
       reader.readAsDataURL(f);
     });
     photoPending.push(p);
   });
-  // 모든 파일 처리 끝나면 버튼 잠금 해제 + 결과 토스트
+  // 모든 파일 처리 끝나면 버튼 잠금 해제 + 결과 표시
   Promise.all(photoPending).then(()=>{
     setSubmitDisabled(null);
-    if(failCount>0) showToast(`사진 ${failCount}장 압축 실패`);
+    if(okCount>0){
+      const failNote=failCount>0?` (${failCount}장 실패)`:'';
+      setPhotoStatus(`✓ 사진 ${okCount}장 준비됨${failNote}`,'#1a7f4b');
+    } else {
+      setPhotoStatus('⚠ 사진 압축 실패 — 다시 선택해주세요','#e84040');
+      showToast('사진 압축 실패');
+    }
   });
 }
 
@@ -526,6 +541,11 @@ async function submitForm(){
     if(photoPending.length){
       await Promise.all(photoPending);
     }
+    // 안전장치: 파일은 첨부됐는데 압축 결과가 비어있으면 차단
+    if(photoFiles.length>0 && photoB64.length===0){
+      showToast('사진 압축이 완료되지 않았습니다. 다시 첨부해주세요');
+      return;
+    }
     const res = await fetch(API+'/submit', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -562,6 +582,7 @@ function resetForm(){
   photoFiles=[];
   photoB64=[];
   photoPending=[];
+  setPhotoStatus('','#94a3b8');
   curAct='';
   document.getElementById('act-fix').className='act';
   document.getElementById('act-swp').className='act';
