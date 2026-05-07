@@ -121,11 +121,10 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 /* 로그인 */
 .lg-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;min-height:calc(100vh - 90px);background:#f4f5f7;}
 .lg-card{background:#fff;border-radius:18px;padding:36px 28px 28px;width:100%;max-width:380px;box-shadow:0 2px 16px rgba(15,52,96,0.08);border:1px solid #eaedf2;}
-.lg-logo{text-align:center;font-size:24px;font-weight:800;color:#1a4fa8;margin-bottom:8px;letter-spacing:-0.4px;line-height:1.25;}
-.lg-sub{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:24px;}
-.lg-pw-info{margin-top:18px;padding-top:14px;border-top:1px solid #f1f5f9;text-align:center;font-size:12px;color:#94a3b8;line-height:1.6;}
-.lg-pw-info a{color:#1a4fa8;font-weight:700;text-decoration:none;border-bottom:1px solid #1a4fa8;}
-.lg-pw-info a:hover{color:#0f3460;}
+.lg-logo{text-align:center;font-size:26px;font-weight:800;color:#1a4fa8;margin-bottom:14px;letter-spacing:-0.5px;line-height:1.2;}
+.lg-lock{display:flex;justify-content:center;margin-bottom:20px;}
+.lg-lock svg{display:block;}
+.lg-sub{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:22px;}
 .lg-inp{width:100%;padding:13px 14px;font-size:15px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;outline:none;font-family:inherit;margin-bottom:10px;-webkit-appearance:none;}
 .lg-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08);}
 .lg-err{color:#e84040;font-size:12px;min-height:16px;margin-bottom:8px;text-align:center;font-weight:600;}
@@ -160,7 +159,15 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 <!-- 로그인 화면 -->
 <div class="lg-screen" id="login-screen" style="display:none;">
   <div class="lg-card">
-    <div class="lg-logo">(주)캠스<br>범퍼 수정일지</div>
+    <div class="lg-logo">범퍼 수정일지</div>
+    <div class="lg-lock">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+           stroke="#1a4fa8" stroke-width="1.6"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="10" rx="2"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+    </div>
     <div class="lg-sub">회사 사번으로 로그인하세요</div>
     <input class="lg-inp" id="login-empid" type="text" placeholder="사번"
       autocomplete="username" inputmode="numeric"
@@ -170,11 +177,6 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       onkeypress="if(event.key==='Enter') doLogin();">
     <div class="lg-err" id="login-err"></div>
     <button class="lg-btn" id="login-btn" onclick="doLogin()">로그인</button>
-    <div class="lg-pw-info">
-      비밀번호 변경은
-      <a href="https://selfservice.icams.co.kr" target="_blank" rel="noopener noreferrer">CAMS Self Service</a>
-      에서 가능합니다
-    </div>
   </div>
 </div>
 
