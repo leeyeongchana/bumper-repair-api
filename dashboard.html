@@ -95,6 +95,30 @@ input.fdate.show{display:block;}
 .empty-dash .et{font-size:16px;font-weight:700;color:#64748b;margin-bottom:8px;}
 .empty-dash .es{font-size:13px;line-height:1.7;}
 
+/* 사진 기록 - 행 리스트 + 페이지네이션 */
+.photo-record-row{display:flex;gap:16px;padding:14px;background:#fff;border:1px solid #eaedf2;border-radius:12px;margin-bottom:10px;}
+.photo-record-imgs{display:flex;gap:8px;flex-shrink:0;align-items:flex-start;}
+.photo-record-imgs img{width:130px;height:98px;object-fit:cover;border-radius:8px;background:#f1f5f9;cursor:pointer;border:1px solid #e2e8f0;}
+.photo-record-info{flex:1;display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-content:start;font-size:13px;line-height:1.5;}
+.pri-label{font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.04em;align-self:center;text-transform:uppercase;}
+.pri-val{color:#1e293b;}
+.pri-val .b-fac{font-weight:700;}
+.pri-val .b-act{font-weight:700;padding:1px 8px;border-radius:10px;font-size:11px;}
+.b-act.fix{background:#e6f5ee;color:#1a7f4b;}
+.b-act.swp{background:#fef0ee;color:#e84040;}
+.page-ctrl{display:flex;justify-content:center;align-items:center;gap:6px;margin:14px 0;flex-wrap:wrap;}
+.page-btn{min-width:34px;height:32px;padding:0 10px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:600;color:#64748b;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .12s;}
+.page-btn.active{background:#1a3f8f;border-color:#1a3f8f;color:#fff;}
+.page-btn:hover:not(.active):not(:disabled){background:#f0f4ff;color:#1a3f8f;border-color:#1a3f8f;}
+.page-btn:disabled{opacity:.4;cursor:not-allowed;}
+.page-ellipsis{padding:0 4px;color:#94a3b8;font-weight:600;font-size:13px;}
+.page-info{font-size:12px;color:#64748b;margin:0 8px;font-weight:600;}
+@media(max-width:700px){
+  .photo-record-row{flex-direction:column;}
+  .photo-record-imgs{width:100%;}
+  .photo-record-imgs img{width:calc(33.33% - 6px);height:80px;}
+}
+
 .twrap{overflow-x:auto;margin-top:10px;}
 table{width:100%;border-collapse:collapse;}
 th{padding:8px 12px;font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.04em;text-align:left;border-bottom:2px solid #f1f5f9;white-space:nowrap;background:#f8fafc;}
@@ -218,13 +242,15 @@ tr:hover td{background:#f8fafc;}
   <div class="ccard">
     <div class="ccard-title">사진 기록</div>
     <div class="ccard-sub" id="photo-sub">현재 필터 기준 사진이 있는 기록을 표시합니다</div>
-    <div id="photo-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px;"></div>
+    <div class="page-ctrl" id="photo-page-ctrl-top"></div>
+    <div id="photo-list" style="margin-top:6px;"></div>
+    <div class="page-ctrl" id="photo-page-ctrl-bot"></div>
   </div>
 </div>
 
 <!-- 사진 모달 -->
 <div id="photo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;" onclick="closePhotoModal()">
-  <img id="photo-modal-img" style="max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain;">
+  <img id="photo-modal-img" onclick="event.stopPropagation()" style="max-width:90vw;max-height:80vh;border-radius:8px;object-fit:contain;cursor:default;">
   <div id="photo-modal-info" style="color:#fff;font-size:13px;margin-top:12px;text-align:center;"></div>
 </div>
 
@@ -871,67 +897,134 @@ function renderRespMon(raw){
   ]);
 }
 
+let photoCurPage = 1;
+const PHOTOS_PER_PAGE = 10;
+
 function renderPhotoGrid(data){
   const withPhotos = data.filter(r=>r.photos && r.photos.length>0);
   const sub = document.getElementById('photo-sub');
-  const grid = document.getElementById('photo-grid');
+  const list = document.getElementById('photo-list');
+  const ctrlTop = document.getElementById('photo-page-ctrl-top');
+  const ctrlBot = document.getElementById('photo-page-ctrl-bot');
+
   sub.textContent = `사진 있는 기록 ${withPhotos.length}건 / 전체 ${data.length}건`;
+
   if(!withPhotos.length){
-    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:#94a3b8;">
+    list.innerHTML=`<div style="text-align:center;padding:60px 20px;color:#94a3b8;">
       <div style="font-size:40px;margin-bottom:12px;">📷</div>
       <div style="font-size:15px;font-weight:700;color:#64748b;margin-bottom:6px;">사진이 없습니다</div>
       <div style="font-size:13px;">상주원 앱에서 사진을 첨부하면 여기에 표시됩니다.</div>
     </div>`;
+    ctrlTop.innerHTML='';
+    ctrlBot.innerHTML='';
     return;
   }
-  const sorted=[...withPhotos].sort((a,b)=>b.submitted_at?.localeCompare(a.submitted_at));
-  const FC={'1공장':'#1a3f8f','2공장':'#1a7f4b','3공장':'#e84040'};
-  const AC={'수정':'#1a7f4b','교환':'#e84040'};
-  // 사진 데이터를 글로벌 캐시에 저장 (HTML 속성에 base64 통째로 박지 않음)
+
+  const sorted=[...withPhotos].sort((a,b)=>(b.submitted_at||'').localeCompare(a.submitted_at||''));
+
+  // 사진 데이터를 글로벌 캐시에 저장
   window._photoData = {};
-  sorted.forEach(r=>{ window._photoData[r.id] = r.photos; });
-  grid.innerHTML = sorted.map(r=>{
+  window._photoInfo = {};
+  sorted.forEach(r=>{
+    window._photoData[r.id] = r.photos;
+    window._photoInfo[r.id] = `${r.factory} ${r.model} ${r.position} | ${r.defect} | C/NO:${r.cno}`;
+  });
+
+  // 페이지네이션
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PHOTOS_PER_PAGE));
+  if(photoCurPage > totalPages) photoCurPage = 1;
+  const startIdx = (photoCurPage - 1) * PHOTOS_PER_PAGE;
+  const pageItems = sorted.slice(startIdx, startIdx + PHOTOS_PER_PAGE);
+
+  const FC={'1공장':'#1a3f8f','2공장':'#1a7f4b','3공장':'#e84040'};
+
+  list.innerHTML = pageItems.map(r=>{
     const fc=FC[r.factory]||'#94a3b8';
-    const ac=AC[r.action]||'#64748b';
-    const info=`${r.factory} ${r.model} ${r.position} | ${r.defect} | C/NO:${r.cno}`;
+    const actClass = r.action==='수정'?'fix':'swp';
     const imgs=r.photos.map((p,i)=>{
-      // 유효한 data:image/* URL 인지 확인
-      const isValidDataUrl=typeof p==='string' && /^data:image\/[a-z]+;base64,/.test(p);
-      const isHttpUrl=typeof p==='string' && /^https?:\/\//.test(p);
-      const safeSrc=isValidDataUrl||isHttpUrl?p:'';
-      return `
-      <img src="${safeSrc}" data-rid="${r.id}" data-pidx="${i}" data-info="${info.replace(/"/g,'&quot;')}"
-        onclick="openPhotoFromImg(this)"
-        onerror="this.style.background='#fee2e2';this.style.padding='12px';this.alt='이미지 손상 또는 형식 오류';this.removeAttribute('src');"
-        style="width:${r.photos.length===1?'100%':'calc(50% - 4px)'};aspect-ratio:4/3;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .15s;background:#f1f5f9;"
-        onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">`;
+      const isValid = typeof p==='string' && /^data:image\/[a-z]+;base64,/.test(p);
+      const isHttp = typeof p==='string' && /^https?:\/\//.test(p);
+      const safeSrc = isValid||isHttp ? p : '';
+      return `<img src="${safeSrc}" data-rid="${r.id}" data-pidx="${i}"
+        onclick="openPhotoFromImg(event,this)"
+        onerror="this.style.background='#fee2e2';this.alt='이미지 손상';this.removeAttribute('src');">`;
     }).join('');
     return `
-    <div style="background:#fff;border-radius:12px;border:1px solid #eaedf2;overflow:hidden;">
-      <div style="padding:10px 14px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:11px;font-weight:700;color:${fc};background:${fc}18;padding:2px 8px;border-radius:10px;">${r.factory}</span>
-        <span style="font-size:11px;font-weight:700;">${r.model} ${r.position}</span>
-        <span style="font-size:11px;color:${ac};font-weight:700;margin-left:auto;">${r.action}</span>
-      </div>
-      <div style="padding:8px;display:flex;gap:8px;flex-wrap:wrap;">${imgs}</div>
-      <div style="padding:8px 14px 12px;font-size:11px;color:#64748b;">
-        <span style="font-weight:700;color:#1e293b;">${r.defect}</span>${r.defect_sub?' · '+r.defect_sub:''}<br>
-        C/NO: ${r.cno} · 색상: ${r.color} · 귀책: ${r.resp} · ${r.date||''}
+    <div class="photo-record-row">
+      <div class="photo-record-imgs">${imgs}</div>
+      <div class="photo-record-info">
+        <div class="pri-label">공장 / 차종</div>
+        <div class="pri-val"><span class="b-fac" style="color:${fc};">${r.factory||'-'}</span> · ${r.model||'-'} ${r.position||''}</div>
+        <div class="pri-label">조치 · 불량</div>
+        <div class="pri-val"><span class="b-act ${actClass}">${r.action||'-'}</span> · ${r.defect||'-'}${r.defect_sub?' <span style="color:#1a3f8f;">('+r.defect_sub+')</span>':''}</div>
+        <div class="pri-label">C/NO · 색상</div>
+        <div class="pri-val">${r.cno||'-'} · ${r.color||'-'}</div>
+        <div class="pri-label">귀책 · 일자</div>
+        <div class="pri-val">${r.resp||'-'} · ${r.date||''} ${r.submitted_at?(r.submitted_at.slice(11,16)):''}</div>
+        ${r.memo?`<div class="pri-label">메모</div><div class="pri-val">${escapeHtml(r.memo)}</div>`:''}
       </div>
     </div>`;
   }).join('');
+
+  const ctrlHtml = renderPageCtrl(photoCurPage, totalPages, sorted.length);
+  ctrlTop.innerHTML = ctrlHtml;
+  ctrlBot.innerHTML = ctrlHtml;
 }
 
-function openPhotoFromImg(img){
-  if(window.event) window.event.stopPropagation();
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderPageCtrl(cur, total, totalItems){
+  if(total <= 1){
+    return `<span class="page-info">총 ${totalItems}건</span>`;
+  }
+  let html = `<span class="page-info">${cur} / ${total} 페이지 · 총 ${totalItems}건</span>`;
+  html += `<button class="page-btn" ${cur===1?'disabled':''} onclick="goPhotoPage(1)">«</button>`;
+  html += `<button class="page-btn" ${cur===1?'disabled':''} onclick="goPhotoPage(${cur-1})">‹</button>`;
+  // 페이지 번호 (현재 주변 + 처음/끝)
+  const range = getPageRange(cur, total);
+  for(const p of range){
+    if(p === '...'){
+      html += `<span class="page-ellipsis">…</span>`;
+    } else {
+      html += `<button class="page-btn ${p===cur?'active':''}" onclick="goPhotoPage(${p})">${p}</button>`;
+    }
+  }
+  html += `<button class="page-btn" ${cur===total?'disabled':''} onclick="goPhotoPage(${cur+1})">›</button>`;
+  html += `<button class="page-btn" ${cur===total?'disabled':''} onclick="goPhotoPage(${total})">»</button>`;
+  return html;
+}
+
+function getPageRange(cur, total){
+  if(total <= 7) return Array.from({length:total},(_,i)=>i+1);
+  const range = [1];
+  if(cur > 3) range.push('...');
+  for(let p=Math.max(2, cur-1); p<=Math.min(total-1, cur+1); p++) range.push(p);
+  if(cur < total-2) range.push('...');
+  range.push(total);
+  return range;
+}
+
+function goPhotoPage(p){
+  photoCurPage = p;
+  renderPhotoGrid(window._data || []);
+  // 위 페이지 컨트롤로 스크롤
+  const top = document.getElementById('photo-page-ctrl-top');
+  if(top) top.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function openPhotoFromImg(ev, img){
+  if(ev && ev.stopPropagation) ev.stopPropagation();
   const rid=img.dataset.rid;
-  const idx=parseInt(img.dataset.pidx,10)||0;
-  const info=img.dataset.info||'';
+  const idx=parseInt(img.dataset.pidx,10);
+  if(isNaN(idx)) return;
   const photos=(window._photoData||{})[rid];
-  if(!photos||!photos[idx]) return;
+  const info=(window._photoInfo||{})[rid] || '';
+  if(!photos || !photos[idx]) return;
   const m=document.getElementById('photo-modal');
   document.getElementById('photo-modal-img').src=photos[idx];
-  document.getElementById('photo-modal-info').textContent=info;
+  document.getElementById('photo-modal-info').textContent=info+(photos.length>1?` (${idx+1}/${photos.length})`:'');
   m.style.display='flex';
 }
 function openPhotoModal(src, info){
