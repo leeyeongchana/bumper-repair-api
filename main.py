@@ -192,6 +192,8 @@ import urllib.error as _urlerr
 
 ICAMS_BASE = os.environ.get("ICAMS_BASE", "https://selfservice.icams.co.kr")
 ICAMS_API_KEY = os.environ.get("ICAMS_API_KEY", "6147")
+# 초기 운영 단계: 사번 == 비밀번호 입력 시 임시 통과 (env로 끌 수 있음)
+ALLOW_INITIAL_LOGIN = os.environ.get("ALLOW_INITIAL_LOGIN", "1") == "1"
 SENSITIVE_KEY_HINTS = ("resident", "rrn", "ssn", "registration", "regnumber", "regno", "socialsecurity")
 
 def _strip_sensitive(d):
@@ -214,6 +216,7 @@ async def auth_login(payload: LoginPayload):
     if not payload.employeeId or not payload.password:
         return {"authenticated": False, "error": "사번과 비밀번호를 입력해주세요"}
 
+    # 1) ICAMS 인증 서버에 먼저 시도 — 성공하면 실제 사원 정보 사용
     body = json.dumps({
         "employeeId": payload.employeeId,
         "password":   payload.password,
@@ -227,22 +230,35 @@ async def auth_login(payload: LoginPayload):
         },
         method="POST",
     )
+    upstream_failed = False
     try:
         with _urlreq.urlopen(req, timeout=10) as resp:
             raw = resp.read().decode("utf-8")
             data = json.loads(raw) if raw else {}
+        if isinstance(data, dict) and data.get("authenticated"):
+            employee = _strip_sensitive(data.get("employee") or {})
+            return {"authenticated": True, "employee": employee}
+        upstream_failed = True  # 200이지만 인증 실패
     except _urlerr.HTTPError as e:
-        if e.code == 401:
-            return {"authenticated": False, "error": "사번 또는 비밀번호가 올바르지 않습니다"}
-        return {"authenticated": False, "error": f"인증 서버 오류 ({e.code})"}
+        upstream_failed = (e.code == 401)
+        if not upstream_failed:
+            return {"authenticated": False, "error": f"인증 서버 오류 ({e.code})"}
     except Exception:
-        return {"authenticated": False, "error": "인증 서버 통신 실패"}
+        upstream_failed = True  # 네트워크 오류도 폴백 허용
 
-    if not isinstance(data, dict) or not data.get("authenticated"):
-        return {"authenticated": False, "error": data.get("error") if isinstance(data, dict) else "인증 실패"}
+    # 2) 초기 운영 폴백: 사번 == 비밀번호 입력 시 임시 통과
+    if ALLOW_INITIAL_LOGIN and payload.employeeId == payload.password:
+        return {
+            "authenticated": True,
+            "employee": {
+                "employeeId": payload.employeeId,
+                "name":       f"사번 {payload.employeeId}",
+                "department": "",
+                "_initialLogin": True,
+            },
+        }
 
-    employee = _strip_sensitive(data.get("employee") or {})
-    return {"authenticated": True, "employee": employee}
+    return {"authenticated": False, "error": "사번 또는 비밀번호가 올바르지 않습니다"}
 
 # ── HTML 페이지 라우트 ────────────────────────────────────────────────────────
 @app.get("/")
