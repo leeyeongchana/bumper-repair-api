@@ -673,6 +673,71 @@ const centerDataLabelPlugin={
   }
 };
 
+const doughnutCenterLabelPlugin={
+  id:'doughnutCenterLabel',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart;
+    const meta=chart.getDatasetMeta(0);
+    const ds=chart.data.datasets[0];
+    if(!ds) return;
+    const total=(ds.data||[]).reduce((s,v)=>s+(Number(v)||0),0);
+    if(!total) return;
+    meta.data.forEach((arc,i)=>{
+      const val=Number(ds.data[i])||0;
+      if(val<=0) return;
+      // arc가 너무 작으면 라벨 생략
+      const ratio=val/total;
+      if(ratio<0.04) return;
+      const pos=arc.tooltipPosition?arc.tooltipPosition():{x:arc.x,y:arc.y};
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.font='800 14px "Noto Sans KR", sans-serif';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,0.45)';
+      ctx.shadowBlur=2;
+      ctx.fillText(val.toLocaleString(), pos.x, pos.y);
+      ctx.restore();
+    });
+  }
+};
+
+const barTopLabelPlugin={
+  id:'barTopLabel',
+  afterDatasetsDraw(chart){
+    const {ctx}=chart;
+    // 스택드 막대인지 감지 (어느 dataset이든 stack 키가 있거나 옵션에 stacked:true)
+    const yOpt=chart.options.scales&&chart.options.scales.y;
+    const stacked=(yOpt&&yOpt.stacked)||(chart.data.datasets||[]).some(ds=>ds.stack);
+    chart.data.datasets.forEach((dataset,di)=>{
+      const meta=chart.getDatasetMeta(di);
+      meta.data.forEach((bar,i)=>{
+        const val=dataset.data[i];
+        if(val==null||val===0) return;
+        const barH=Math.abs(bar.base-bar.y);
+        ctx.save();
+        ctx.font='800 11px "Noto Sans KR", sans-serif';
+        ctx.textAlign='center';
+        if(stacked){
+          // 스택드: 각 segment 안에 흰색으로 (높이 충분할 때만)
+          if(barH<14){ctx.restore();return;}
+          ctx.fillStyle='#fff';
+          ctx.shadowColor='rgba(0,0,0,0.4)';
+          ctx.shadowBlur=2;
+          ctx.textBaseline='middle';
+          ctx.fillText(val.toLocaleString(), bar.x, bar.y+barH/2);
+        } else {
+          // 일반: 막대 위에 검정으로
+          ctx.fillStyle='#1e293b';
+          ctx.textBaseline='bottom';
+          ctx.fillText(val.toLocaleString(), bar.x, bar.y - 3);
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+
 const miniCenterDataLabelPlugin={
   id:'miniCenterDataLabel',
   afterDatasetsDraw(chart){
@@ -875,14 +940,19 @@ function renderModelMiniBar(canvasId, fixCount, swpCount, fixColor, swpColor){
 }
 
 function renderAction(d){
-  mk('c-action','doughnut',['수정','교환'],[{data:[d.filter(r=>r.action==='수정').length,d.filter(r=>r.action==='교환').length],backgroundColor:['#1a7f4b','#e84040'],borderWidth:0}]);
+  mk('c-action','doughnut',['수정','교환'],
+    [{data:[d.filter(r=>r.action==='수정').length,d.filter(r=>r.action==='교환').length],backgroundColor:['#1a7f4b','#e84040'],borderWidth:0}],
+    {},
+    [doughnutCenterLabelPlugin]);
 }
 function renderActFac(d){
   const fs=['1공장','2공장','3공장'];
   mk('c-act-fac','bar',fs,[
     {label:'수정',data:fs.map(f=>d.filter(r=>r.factory===f&&r.action==='수정').length),backgroundColor:'#1a7f4b',borderRadius:4},
     {label:'교환',data:fs.map(f=>d.filter(r=>r.factory===f&&r.action==='교환').length),backgroundColor:'#e84040',borderRadius:4},
-  ]);
+  ],
+  {layout:{padding:{top:18}}},
+  [barTopLabelPlugin]);
 }
 function renderMonthly(raw){
   const fd=curF?raw.filter(r=>r.factory===curF):raw;
@@ -894,10 +964,15 @@ function renderMonthly(raw){
     datasets.push({label:y+'년 수정',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='수정').length),backgroundColor:colors[yi%4]+'99',borderRadius:3,stack:y});
     datasets.push({label:y+'년 교환',data:months.map(m=>fd.filter(r=>r.date?.startsWith(y+'-'+m)&&r.action==='교환').length),backgroundColor:colors[yi%4],borderRadius:3,stack:y});
   });
-  mk('c-monthly','bar',months.map(m=>m+'월'),datasets,{scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}}});
+  mk('c-monthly','bar',months.map(m=>m+'월'),datasets,
+    {scales:{x:{stacked:true},y:{beginAtZero:true,stacked:true}},layout:{padding:{top:18}}},
+    [barTopLabelPlugin]);
 }
 function renderPos(d){
-  mk('c-pos','doughnut',['FRT','RR'],[{data:['FRT','RR'].map(p=>d.filter(r=>r.position===p).length),backgroundColor:['#1a3f8f','#e84040'],borderWidth:0}]);
+  mk('c-pos','doughnut',['FRT','RR'],
+    [{data:['FRT','RR'].map(p=>d.filter(r=>r.position===p).length),backgroundColor:['#1a3f8f','#e84040'],borderWidth:0}],
+    {},
+    [doughnutCenterLabelPlugin]);
 }
 function renderDefect(d){
   const types=['찍힘','긁힘','파손','도장불량','조립불량','고무링말림','티이물','이종','기타'];
