@@ -42,7 +42,8 @@ def init_db():
             submitted_at      TEXT,
             date              TEXT,
             submitted_by_id   TEXT,
-            submitted_by_name TEXT
+            submitted_by_name TEXT,
+            submitted_by_dept TEXT
         )
     """)
     # 기존 테이블에 누락된 컬럼이 있으면 ALTER로 추가
@@ -52,6 +53,7 @@ def init_db():
         ("photos",            "TEXT"),
         ("submitted_by_id",   "TEXT"),
         ("submitted_by_name", "TEXT"),
+        ("submitted_by_dept", "TEXT"),
     ]:
         if col not in existing_cols:
             try:
@@ -90,6 +92,7 @@ class Record(BaseModel):
     photos:            list = []
     submitted_by_id:   str = ""
     submitted_by_name: str = ""
+    submitted_by_dept: str = ""
 
 # ── 제출 ───────────────────────────────────────────────────────────────────────
 @app.post("/submit")
@@ -101,8 +104,8 @@ async def submit_record(record: Record):
         INSERT INTO records
         (factory, model, position, cno, color, action, defect, defect_sub,
          resp, memo, markers, photos, submitted_at, date,
-         submitted_by_id, submitted_by_name)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         submitted_by_id, submitted_by_name, submitted_by_dept)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record.factory, record.model, record.position,
         record.cno, record.color, record.action,
@@ -114,6 +117,7 @@ async def submit_record(record: Record):
         now.strftime("%Y-%m-%d"),
         record.submitted_by_id,
         record.submitted_by_name,
+        record.submitted_by_dept,
     ))
     new_id = cur.lastrowid
     conn.commit()

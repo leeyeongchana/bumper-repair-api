@@ -710,7 +710,8 @@ async function submitForm(){
         defect, defect_sub: exchPart,
         resp, memo, markers:[], photos: photoB64,
         submitted_by_id:   emp.employeeId || '',
-        submitted_by_name: emp.name || ''
+        submitted_by_name: emp.name || '',
+        submitted_by_dept: emp.department || ''
       })
     });
     if(res.ok){
@@ -763,7 +764,7 @@ function makeListItem(r, i, source) {
         ${r.defect_sub?'<div class="li-sub" style="color:#0f3460;font-weight:600;">교환부품: '+r.defect_sub+'</div>':''}
         <div class="li-sub">C/NO ${r.cno||''} · ${r.color||''} · ${r.resp||''}</div>
         ${r.memo?'<div class="li-sub">'+r.memo+'</div>':''}
-        ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+'</div>':''}
+        ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
         <div class="li-time">${r.submitted_at?r.submitted_at.slice(11,16):''}</div>
       </div>
       <button class="del-btn" onclick="askDelete(${r.id},'${source}')" title="삭제">✕</button>
