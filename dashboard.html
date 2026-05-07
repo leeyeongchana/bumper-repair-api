@@ -705,38 +705,26 @@ function renderFacCards(data){
     const div=document.createElement('div');
     div.className='fac-card';
 
-    let bodyHtml;
-    if(models.length>1){
-      bodyHtml=`
-        <div class="model-sections">
-          ${models.map((m,i)=>{
-            const md=fd.filter(r=>r.model===m);
-            const mt=md.length;
-            const mfix=md.filter(r=>r.action==='수정').length;
-            const mswp=md.filter(r=>r.action==='교환').length;
-            const mcol=MODEL_COLORS[m];
-            return `
-              <div class="model-section" style="border-left:4px solid ${mcol};">
-                <div class="model-section-row">
-                  <div class="model-section-name" style="color:${mcol}">${m}</div>
-                  <div class="ms-stat"><div class="ms-val">${mt.toLocaleString()}</div><div class="ms-lbl">총 건수</div></div>
-                  <div class="ms-stat"><div class="ms-val" style="color:#1a7f4b">${mfix.toLocaleString()}</div><div class="ms-lbl">수정</div></div>
-                  <div class="ms-stat"><div class="ms-val" style="color:#e84040">${mswp.toLocaleString()}</div><div class="ms-lbl">교환</div></div>
-                </div>
-                <div class="mini-chart-wrap"><canvas id="c-fac-${facKey}-${i}"></canvas></div>
-              </div>`;
-          }).join('')}
-        </div>`;
-    } else {
-      bodyHtml=`
-        <div class="model-chips">
-          ${models.map(m=>{
-            const mc=fd.filter(r=>r.model===m).length;
-            return `<span class="model-chip" style="background:${MODEL_COLORS[m]}1a;color:${MODEL_COLORS[m]};border-color:${MODEL_COLORS[m]}55;"><span class="mc-name">${m}</span><span class="mc-count">${mc}건</span></span>`;
-          }).join('')}
-        </div>
-        <div class="mini-chart-wrap tall"><canvas id="c-fac-${facKey}"></canvas></div>`;
-    }
+    const bodyHtml=`
+      <div class="model-sections">
+        ${models.map((m,i)=>{
+          const md=fd.filter(r=>r.model===m);
+          const mt=md.length;
+          const mfix=md.filter(r=>r.action==='수정').length;
+          const mswp=md.filter(r=>r.action==='교환').length;
+          const mcol=MODEL_COLORS[m];
+          return `
+            <div class="model-section" style="border-left:4px solid ${mcol};">
+              <div class="model-section-row">
+                <div class="model-section-name" style="color:${mcol}">${m}</div>
+                <div class="ms-stat"><div class="ms-val">${mt.toLocaleString()}</div><div class="ms-lbl">총 건수</div></div>
+                <div class="ms-stat"><div class="ms-val" style="color:#1a7f4b">${mfix.toLocaleString()}</div><div class="ms-lbl">수정</div></div>
+                <div class="ms-stat"><div class="ms-val" style="color:#e84040">${mswp.toLocaleString()}</div><div class="ms-lbl">교환</div></div>
+              </div>
+              <div class="mini-chart-wrap"><canvas id="c-fac-${facKey}-${i}"></canvas></div>
+            </div>`;
+        }).join('')}
+      </div>`;
 
     div.innerHTML=`
       <div class="fac-card-hdr">
@@ -752,18 +740,12 @@ function renderFacCards(data){
     container.appendChild(div);
 
     setTimeout(()=>{
-      if(models.length>1){
-        models.forEach((m,i)=>{
-          const md=fd.filter(r=>r.model===m);
-          const mfix=md.filter(r=>r.action==='수정').length;
-          const mswp=md.filter(r=>r.action==='교환').length;
-          renderModelMiniBar(`c-fac-${facKey}-${i}`, mfix, mswp, fixColor, swpColor);
-        });
-      } else {
-        const mfix=fd.filter(r=>r.action==='수정').length;
-        const mswp=fd.filter(r=>r.action==='교환').length;
-        renderModelMiniBar(`c-fac-${facKey}`, mfix, mswp, fixColor, swpColor);
-      }
+      models.forEach((m,i)=>{
+        const md=fd.filter(r=>r.model===m);
+        const mfix=md.filter(r=>r.action==='수정').length;
+        const mswp=md.filter(r=>r.action==='교환').length;
+        renderModelMiniBar(`c-fac-${facKey}-${i}`, mfix, mswp, fixColor, swpColor);
+      });
     },50);
   });
 }
