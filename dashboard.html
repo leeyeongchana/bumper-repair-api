@@ -558,10 +558,6 @@ function renderDashContent(raw, data){
       <button class="tog-btn" onclick="toggleSec('act-body',this)">▲ 숨기기</button>
     </div>
     <div class="collapse-body" id="act-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">수정 vs 교환</div><div class="ccard-sub">전체 비율</div><canvas id="c-action" height="150"></canvas></div>
-        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 수정/교환</div><div class="ccard-sub">공장별 세부</div><canvas id="c-act-fac" height="150"></canvas></div>
-      </div>
       <div class="ccard" style="margin-bottom:12px;">
         <div class="ccard-title">월별 수정/교환 추이</div>
         <div class="ccard-sub">월별 건수 변화 (수정 / 교환 각각)</div>
@@ -569,6 +565,11 @@ function renderDashContent(raw, data){
         <div style="position:relative;height:200px;"><canvas id="c-monthly-fix"></canvas></div>
         <div style="font-size:11px;font-weight:700;color:#e84040;margin-top:14px;letter-spacing:.04em;">교환</div>
         <div style="position:relative;height:200px;"><canvas id="c-monthly-swp"></canvas></div>
+      </div>
+      <div class="row-3">
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">수정 vs 교환</div><div class="ccard-sub">전체 비율</div><canvas id="c-action" height="150"></canvas></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 수정/교환</div><div class="ccard-sub">공장별 세부</div><canvas id="c-act-fac" height="150"></canvas></div>
+        <div></div>
       </div>
     </div>
     <!-- 책임구 -->
