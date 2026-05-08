@@ -223,6 +223,26 @@ def _strip_sensitive(d):
         cleaned[k] = _strip_sensitive(v) if isinstance(v, dict) else v
     return cleaned
 
+def _normalize_employee(emp):
+    """ICAMS 응답의 다양한 부서/이름 키를 표준 키(name, department)로 정규화."""
+    if not isinstance(emp, dict):
+        return emp
+    if not emp.get("department"):
+        for k in ("deptName", "departmentName", "departmentNm", "deptNm",
+                  "dept", "department_name", "dept_name", "부서", "부서명"):
+            v = emp.get(k)
+            if v:
+                emp["department"] = v
+                break
+    if not emp.get("name"):
+        for k in ("employeeName", "userName", "empName", "empNm",
+                  "employee_name", "user_name", "이름", "성명"):
+            v = emp.get(k)
+            if v:
+                emp["name"] = v
+                break
+    return emp
+
 class LoginPayload(BaseModel):
     employeeId: str = ""
     password:   str = ""
@@ -252,7 +272,7 @@ async def auth_login(payload: LoginPayload):
             raw = resp.read().decode("utf-8")
             data = json.loads(raw) if raw else {}
         if isinstance(data, dict) and data.get("authenticated"):
-            employee = _strip_sensitive(data.get("employee") or {})
+            employee = _normalize_employee(_strip_sensitive(data.get("employee") or {}))
             return {"authenticated": True, "employee": employee}
         upstream_failed = True  # 200이지만 인증 실패
     except _urlerr.HTTPError as e:

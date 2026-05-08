@@ -369,6 +369,19 @@ function saveEmployee(emp){
     if(blockHints.some(h => kl.includes(h))) continue;
     safe[k] = emp[k];
   }
+  // 부서 키 정규화 - ICAMS 응답 변형 대비
+  if(!safe.department){
+    const deptKeys = ['deptName','departmentName','departmentNm','deptNm','dept','department_name','dept_name','부서','부서명'];
+    for(const k of deptKeys){
+      if(emp[k]){ safe.department = emp[k]; break; }
+    }
+  }
+  if(!safe.name){
+    const nameKeys = ['employeeName','userName','empName','empNm','employee_name','user_name','이름','성명'];
+    for(const k of nameKeys){
+      if(emp[k]){ safe.name = emp[k]; break; }
+    }
+  }
   localStorage.setItem(LS_AUTH_KEY, JSON.stringify(safe));
 }
 async function doLogin(){
