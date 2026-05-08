@@ -569,7 +569,7 @@ function renderDashContent(raw, data){
       <div class="row-3">
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">수정 vs 교환</div><div class="ccard-sub">전체 비율</div><canvas id="c-action" height="150"></canvas></div>
         <div class="ccard" style="margin-bottom:0"><div class="ccard-title">공장별 수정/교환</div><div class="ccard-sub">공장별 세부</div><canvas id="c-act-fac" height="150"></canvas></div>
-        <div></div>
+        <div class="ccard" style="margin-bottom:0"><div class="ccard-title">FRT vs RR</div><div class="ccard-sub">부위별 비율</div><canvas id="c-pos" height="150"></canvas></div>
       </div>
     </div>
     <!-- 책임구 -->
@@ -591,6 +591,7 @@ function renderDashContent(raw, data){
   renderAction(data);
   renderActFac(data);
   renderMonthly(raw);
+  renderPos(data);
   renderDefect(data);
   renderParts(data);
   renderResp(data);
@@ -1037,6 +1038,12 @@ function renderParts(d){
 function renderResp(d){
   mk('c-resp','doughnut',['캠스','기아','복합'],
     [{data:['캠스','기아','복합'].map(r=>d.filter(e=>e.resp===r).length),backgroundColor:['#1a3f8f','#d97706','#7c3aed'],borderWidth:0}],
+    {},
+    [doughnutCenterLabelPlugin]);
+}
+function renderPos(d){
+  mk('c-pos','doughnut',['FRT','RR'],
+    [{data:['FRT','RR'].map(p=>d.filter(r=>r.position===p).length),backgroundColor:['#1a3f8f','#e84040'],borderWidth:0}],
     {},
     [doughnutCenterLabelPlugin]);
 }
