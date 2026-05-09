@@ -132,9 +132,30 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 .lg-btn:active{opacity:.88;}
 .lg-btn:disabled{background:#9ca3af;cursor:not-allowed;}
 /* 사용자 칩 / 로그아웃 (헤더용) */
-.user-chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;background:rgba(255,255,255,0.18);color:#fff;padding:5px 10px;border-radius:14px;}
-.logout-btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:11px;font-weight:700;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.hr-right{display:flex;align-items:center;gap:6px;min-width:0;flex-shrink:1;}
+.user-chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;background:rgba(255,255,255,0.18);color:#fff;padding:5px 10px;border-radius:14px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;}
+.logout-btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.35);font-size:11px;font-weight:700;padding:4px 10px;border-radius:14px;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;flex-shrink:0;white-space:nowrap;}
 .logout-btn:active{background:rgba(255,255,255,0.12);}
+
+/* 모바일 헤더 반응형 */
+@media (max-width:480px){
+  .ah{padding:10px 12px 0;}
+  .at{font-size:14px;}
+  .hr{gap:6px;}
+  .db{font-size:10px;padding:3px 8px;flex-shrink:0;}
+  .hr-right{gap:4px;}
+  .user-chip{font-size:10px;padding:4px 8px;max-width:130px;}
+  .logout-btn{font-size:10px;padding:3px 8px;}
+  .fb{font-size:10px;padding:3px 8px;}
+  .tab{font-size:11px;padding:8px 0;}
+}
+@media (max-width:360px){
+  .at{font-size:13px;}
+  .db{font-size:9px;padding:2px 6px;}
+  .user-chip{max-width:100px;font-size:9px;padding:3px 7px;}
+  .logout-btn{font-size:9px;padding:2px 7px;}
+  .fb{font-size:9px;padding:2px 7px;}
+}
 </style>
 </head>
 <body>
@@ -143,7 +164,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   <div class="at">범퍼 수정일지</div>
   <div class="hr">
     <div class="db" id="top-date"></div>
-    <div style="display:flex;align-items:center;gap:6px;">
+    <div class="hr-right">
       <div class="user-chip" id="user-info" style="display:none;"></div>
       <button class="logout-btn" id="logout-btn" onclick="doLogout()" style="display:none;">로그아웃</button>
       <div class="fb" id="fac-badge" onclick="goSetup()" style="display:none;">공장 선택</div>
@@ -433,6 +454,8 @@ function doLogout(){
   document.getElementById('login-pw').value = '';
   document.getElementById('login-err').textContent = '';
   curF = '';
+  // history도 초기 상태로 (뒤로가기 눌러도 로그인 화면 유지)
+  try { history.replaceState(null, ''); } catch(e) {}
 }
 function onLoggedIn(){
   const emp = getStoredEmployee();
@@ -444,6 +467,8 @@ function onLoggedIn(){
   document.getElementById('logout-btn').style.display = 'inline-block';
   document.getElementById('fac-badge').style.display = 'inline-block';
   document.getElementById('setup-screen').style.display = 'flex';
+  // 로그인 직후 setup을 history 기준점으로
+  try { history.replaceState({screen:'setup'}, ''); } catch(e) {}
 }
 function checkAuthOnLoad(){
   const emp = getStoredEmployee();
@@ -453,6 +478,32 @@ function checkAuthOnLoad(){
     document.getElementById('login-screen').style.display = 'flex';
   }
 }
+
+// ── 브라우저 뒤로가기 처리 ──────────────────────────────────────────────────
+let _navSilent = false; // popstate 처리 중에는 pushState 생략
+function pushNav(state){
+  if(_navSilent) return;
+  try { history.pushState(state, ''); } catch(e) {}
+}
+window.addEventListener('popstate', function(e){
+  // 미인증 상태에서는 무시 (로그인 화면 유지)
+  if(!getStoredEmployee()) return;
+  _navSilent = true;
+  try {
+    const s = e.state || {screen:'setup'};
+    if(s.screen === 'setup'){
+      goSetup();
+    } else if(s.screen === 'tabs'){
+      if(!curF){
+        goSetup();
+      } else {
+        showTab(s.tab || 'input');
+      }
+    }
+  } finally {
+    _navSilent = false;
+  }
+});
 const COLORS = {
   '1공장':['SWP','BU3','FSB','KDG','KLG','EBB','OVR','MRM','IEG','IEB','ISG','ISM','BJG','GBG','1D','M3R','PLU','B3A'],
   '2공장':['SWP','KDG','FSB','BB2','C7A','HRB','JUG','KLG','MGG','UD','KLT'],
@@ -484,6 +535,7 @@ function showTab(t) {
   document.getElementById('hist-screen').style.display = t==='hist' ? 'flex' : 'none';
   if(t==='list') renderList();
   if(t==='hist') loadHistory();
+  pushNav({screen:'tabs', tab:t, factory:curF});
 }
 
 // 공장 선택
@@ -492,7 +544,9 @@ function setF(f) {
   document.getElementById('fac-badge').textContent = f;
   document.getElementById('setup-screen').style.display = 'none';
   document.getElementById('tabs').style.display = 'flex';
-  showTab('input');
+  // 내부 showTab은 별도 push 안 하도록 silent로 (마지막에 한 번만 push)
+  _navSilent = true;
+  try { showTab('input'); } finally { _navSilent = false; }
   document.getElementById('form-screen').style.display = 'flex';
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
   const mg = document.getElementById('model-grp');
@@ -514,6 +568,7 @@ function setF(f) {
   document.getElementById('cno-inp').value='';
   document.getElementById('memo').value='';
   loadHistory();
+  pushNav({screen:'tabs', tab:'input', factory:f});
 }
 function goSetup() {
   document.getElementById('setup-screen').style.display='flex';
@@ -521,6 +576,7 @@ function goSetup() {
   document.getElementById('list-screen').style.display='none';
   document.getElementById('hist-screen').style.display='none';
   document.getElementById('tabs').style.display='none';
+  pushNav({screen:'setup'});
 }
 
 // C/NO
