@@ -145,9 +145,58 @@ tr:hover td{background:#f8fafc;}
 
 @media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}.row-4{grid-template-columns:1fr 1fr;}}
 @media(max-width:700px){.kpi-row{grid-template-columns:1fr 1fr;}.row-half,.row-3,.row-4{grid-template-columns:1fr;}.page{padding:12px 10px;}.header,.nav,.fbar{padding-left:12px;padding-right:12px;}}
+
+/* 로그인 화면 */
+.lg-screen{display:none;flex-direction:column;align-items:center;min-height:100vh;background:#f0f2f7;}
+.lg-bar{background:#0f3460;width:100%;padding:13px 20px 14px;color:#fff;}
+.lg-bar-title{font-size:16px;font-weight:700;}
+.lg-bar-date{display:inline-block;font-size:12px;background:rgba(255,255,255,0.18);color:#fff;padding:3px 11px;border-radius:12px;margin-top:5px;font-weight:600;}
+.lg-wrap{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:40px 20px;}
+.lg-card{background:#fff;border-radius:18px;padding:36px 32px 28px;width:100%;max-width:400px;box-shadow:0 4px 24px rgba(15,52,96,0.10);border:1px solid #eaedf2;}
+.lg-logo{text-align:center;font-size:28px;font-weight:800;color:#1a4fa8;margin-bottom:14px;letter-spacing:-0.5px;line-height:1.2;}
+.lg-lock{display:flex;justify-content:center;margin-bottom:20px;}
+.lg-lock svg{display:block;}
+.lg-sub{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:22px;}
+.lg-inp{width:100%;padding:13px 14px;font-size:15px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;outline:none;font-family:inherit;margin-bottom:10px;}
+.lg-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08);}
+.lg-err{color:#e84040;font-size:12px;min-height:16px;margin-bottom:8px;text-align:center;font-weight:600;}
+.lg-btn{width:100%;padding:14px;background:#0f3460;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s;}
+.lg-btn:hover{opacity:.92;}
+.lg-btn:active{opacity:.85;}
+.lg-btn:disabled{background:#9ca3af;cursor:not-allowed;}
 </style>
 </head>
 <body>
+
+<!-- 로그인 화면 -->
+<div class="lg-screen" id="login-screen">
+  <div class="lg-bar">
+    <div class="lg-bar-title">기아 알카 수정 현황</div>
+    <div class="lg-bar-date" id="login-date"></div>
+  </div>
+  <div class="lg-wrap">
+    <div class="lg-card">
+      <div class="lg-logo">기아 알카 수정 현황</div>
+      <div class="lg-lock">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+             stroke="#1a4fa8" stroke-width="1.6"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="11" width="16" height="10" rx="2"/>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+      </div>
+      <div class="lg-sub">회사 사번으로 로그인하세요</div>
+      <input class="lg-inp" id="login-empid" type="text" placeholder="사번"
+        autocomplete="username" inputmode="numeric"
+        onkeypress="if(event.key==='Enter') document.getElementById('login-pw').focus();">
+      <input class="lg-inp" id="login-pw" type="password" placeholder="비밀번호"
+        autocomplete="current-password"
+        onkeypress="if(event.key==='Enter') doLogin();">
+      <div class="lg-err" id="login-err"></div>
+      <button class="lg-btn" id="login-btn" onclick="doLogin()">로그인</button>
+    </div>
+  </div>
+</div>
 
 <div class="header">
   <div class="header-left">
@@ -289,26 +338,43 @@ tr:hover td{background:#f8fafc;}
 </div>
 
 <script>
-const API='http://localhost:8000';
+const API='';
 const LS_AUTH_KEY = 'bumper_employee';
 
-// ── 인증 체크 (미로그인 시 / 로 이동) ────────────────────────────────────────
+let _isAuthenticated = false;
+
+// ── 인증 체크 (미로그인 시 동일 페이지에 로그인 화면 표시) ────────────────────
 function getStoredEmployee(){
   try { return JSON.parse(localStorage.getItem(LS_AUTH_KEY) || 'null'); }
   catch(e) { return null; }
 }
-function doLogout(){
-  if(!confirm('로그아웃 하시겠습니까?')) return;
-  localStorage.removeItem(LS_AUTH_KEY);
-  window.location.href = '/';
+
+function showLoginScreen(){
+  // 대시보드 UI 숨김
+  const hdr = document.querySelector('.header');
+  if(hdr) hdr.style.display = 'none';
+  document.querySelectorAll('.nav, .fbar, .page').forEach(el => el.style.display = 'none');
+  // 로그인 화면 표시
+  const ls = document.getElementById('login-screen');
+  ls.style.display = 'flex';
+  // 헤더 날짜 채우기
+  const t=new Date(),DY=['일','월','화','수','목','금','토'],pad=n=>String(n).padStart(2,'0');
+  const dateEl = document.getElementById('login-date');
+  if(dateEl) dateEl.textContent =
+    t.getFullYear()+'.'+pad(t.getMonth()+1)+'.'+pad(t.getDate())+' ('+DY[t.getDay()]+')';
+  // 사번 입력 포커스
+  setTimeout(()=>{ const i=document.getElementById('login-empid'); if(i) i.focus(); }, 50);
 }
-(function authGate(){
-  const emp = getStoredEmployee();
-  if(!emp){
-    window.location.href = '/';
-    return;
-  }
-  // 헤더에 사용자 정보 표시 (DOM이 위쪽에 정의되어 있어 즉시 접근 가능)
+
+function showDashboard(emp){
+  // 로그인 화면 숨김
+  const ls = document.getElementById('login-screen');
+  if(ls) ls.style.display = 'none';
+  // 대시보드 UI 복원 (display 해제 → 기본 스타일 적용)
+  const hdr = document.querySelector('.header');
+  if(hdr) hdr.style.display = '';
+  document.querySelectorAll('.nav, .fbar, .page').forEach(el => el.style.display = '');
+  // 사용자 정보 / 로그아웃 버튼 표시
   const ui = document.getElementById('user-info');
   if(ui){
     ui.textContent = `${emp.name||'-'}${emp.department?' · '+emp.department:''}`;
@@ -316,6 +382,89 @@ function doLogout(){
   }
   const lb = document.getElementById('logout-btn');
   if(lb) lb.style.display = 'inline-block';
+}
+
+async function doLogin(){
+  const empId = document.getElementById('login-empid').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if(!empId || !pw){
+    errEl.textContent = '사번과 비밀번호를 모두 입력해주세요';
+    return;
+  }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = '로그인 중...';
+  try {
+    const res = await fetch(API+'/auth/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({employeeId: empId, password: pw})
+    });
+    const data = await res.json();
+    if(data.authenticated && data.employee){
+      // 부서/이름 키 정규화 + 민감정보 차단 (index.html과 동일)
+      const emp = {...data.employee, employeeId: empId};
+      if(!emp.department){
+        for(const k of ['deptName','departmentName','departmentNm','deptNm','dept','department_name','dept_name','부서','부서명']){
+          if(emp[k]){ emp.department = emp[k]; break; }
+        }
+      }
+      if(!emp.name){
+        for(const k of ['employeeName','userName','empName','empNm','employee_name','user_name','이름','성명']){
+          if(emp[k]){ emp.name = emp[k]; break; }
+        }
+      }
+      const safe = {};
+      const blockHints = ['resident','rrn','ssn','registration','socialsecurity','regnumber','regno'];
+      for(const k in emp){
+        const kl = k.toLowerCase().replace(/_/g,'');
+        if(blockHints.some(h => kl.includes(h))) continue;
+        safe[k] = emp[k];
+      }
+      localStorage.setItem(LS_AUTH_KEY, JSON.stringify(safe));
+      _isAuthenticated = true;
+      showDashboard(safe);
+      // 최초 로그인 시 데이터 로드 + 폴링 시작
+      if(typeof loadAll === 'function') loadAll();
+      if(!window._pollStarted){
+        setInterval(() => { if(_isAuthenticated && typeof loadAll === 'function') loadAll(); }, 60000);
+        window._pollStarted = true;
+      }
+    } else {
+      errEl.textContent = data.error || '사번 또는 비밀번호가 올바르지 않습니다';
+    }
+  } catch(e) {
+    errEl.textContent = '네트워크 오류 — 서버 연결 확인';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+
+function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?')) return;
+  localStorage.removeItem(LS_AUTH_KEY);
+  _isAuthenticated = false;
+  // 입력값 초기화
+  const eid = document.getElementById('login-empid'); if(eid) eid.value = '';
+  const pw  = document.getElementById('login-pw');    if(pw)  pw.value  = '';
+  const er  = document.getElementById('login-err');   if(er)  er.textContent = '';
+  // 헤더 사용자 정보 / 로그아웃 버튼 숨김
+  const ui = document.getElementById('user-info');  if(ui) ui.style.display = 'none';
+  const lb = document.getElementById('logout-btn'); if(lb) lb.style.display = 'none';
+  showLoginScreen();
+}
+
+(function authGate(){
+  const emp = getStoredEmployee();
+  if(!emp){
+    showLoginScreen();
+  } else {
+    _isAuthenticated = true;
+    showDashboard(emp);
+  }
 })();
 
 const CAR_MODELS = {
@@ -1261,8 +1410,11 @@ function renderTable(data){
   </tr>`).join('');
 }
 
-loadAll();
-setInterval(loadAll,60000);
+if(_isAuthenticated){
+  loadAll();
+  setInterval(loadAll, 60000);
+  window._pollStarted = true;
+}
 </script>
 </body>
 </html>

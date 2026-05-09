@@ -14,7 +14,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # 별도 DB 서버 없이 작동. main.py와 같은 폴더의 bumper_log.db 파일을 사용.
 import sqlite3
 
-DB_PATH = os.path.join(BASE_DIR, "bumper_log.db")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "bumper_log.db"))
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
