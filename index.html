@@ -254,7 +254,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       <div class="extra" id="sub-assembly"><div class="hint">부품명</div><input class="inp" type="text" placeholder="부품명 입력"></div>
       <div class="extra" id="sub-etc"><div class="hint">직접 입력</div><input class="inp" id="etc-txt" type="text" placeholder="불량 내용 입력"></div>
       <div class="extra" id="sub-part-frt">
-        <div class="hint">교환 부품 (FRT)</div>
+        <div class="hint" id="hint-frt">교환 부품 (FRT)</div>
         <select class="inp" onchange="onPartOther(this,'other-frt')">
           <option value="">부품 선택</option>
           <option>BUMPER ASSY-FR (프론트 범퍼 앗세이)</option>
@@ -269,7 +269,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         <div class="extra" id="other-frt"><input class="inp" style="margin-top:7px;" type="text" placeholder="FRT 부품명 직접 입력"></div>
       </div>
       <div class="extra" id="sub-part-rr">
-        <div class="hint">교환 부품 (RR)</div>
+        <div class="hint" id="hint-rr">교환 부품 (RR)</div>
         <select class="inp" onchange="onPartOther(this,'other-rr')">
           <option value="">부품 선택</option>
           <option>BUMPER ASSY-RR (리어 범퍼 앗세이)</option>
@@ -280,7 +280,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         <div class="extra" id="other-rr"><input class="inp" style="margin-top:7px;" type="text" placeholder="RR 부품명 직접 입력"></div>
       </div>
       <div class="extra" id="sub-part-both">
-        <div class="hint">교환 부품 (FRT)</div>
+        <div class="hint" id="hint-both-frt">교환 부품 (FRT)</div>
         <select class="inp" style="margin-bottom:7px;" onchange="onPartOther(this,'other-both-frt')">
           <option value="">부품 선택</option>
           <option>BUMPER ASSY-FR (프론트 범퍼 앗세이)</option>
@@ -293,7 +293,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
           <option value="기타">기타 (직접 입력)</option>
         </select>
         <div class="extra" id="other-both-frt"><input class="inp" style="margin-bottom:7px;" type="text" placeholder="FRT 부품명 직접 입력"></div>
-        <div class="hint">교환 부품 (RR)</div>
+        <div class="hint" id="hint-both-rr">교환 부품 (RR)</div>
         <select class="inp" onchange="onPartOther(this,'other-both-rr')">
           <option value="">부품 선택</option>
           <option>BUMPER ASSY-RR (리어 범퍼 앗세이)</option>
@@ -584,7 +584,7 @@ function onCnoInput(el){el.value=el.value.replace(/[^0-9]/g,'').slice(0,4);}
 function onCnoFocus(el){const n=parseInt(el.value||'0',10);el.value=n>0?String(n):'';el.placeholder='숫자 입력';}
 function onCnoBlur(el){const r=el.value.replace(/[^0-9]/g,'');if(!r||r==='0000'){el.value='';el.placeholder='0001';return;}const n=Math.min(9999,Math.max(1,parseInt(r,10)));el.value=String(n).padStart(4,'0');}
 
-function pickB(g,el){document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));el.classList.add('on');if(g==='pos-grp'&&curAct==='swp'){const v=document.getElementById('defect-sel').value;if(v&&v!=='기타')updatePartDD();}}
+function pickB(g,el){document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));el.classList.add('on');if(g==='pos-grp'&&(curAct==='swp'||curAct==='fix')){const v=document.getElementById('defect-sel').value;if(v&&v!=='기타')updatePartDD();}}
 function pickR(el){document.querySelectorAll('.rb').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
 function pickAct(t){
   curAct=t;
@@ -601,9 +601,10 @@ function hideAllSub(){['sub-paint','sub-assembly','sub-etc','sub-part-frt','sub-
 function onDefect(v){
   hideAllSub();
   if(curAct==='fix'){
+    if(v==='기타'){document.getElementById('sub-etc').className='extra show';return;}
     if(v==='도장불량')document.getElementById('sub-paint').className='extra show';
-    else if(v==='조립불량')document.getElementById('sub-assembly').className='extra show';
-    else if(v==='기타')document.getElementById('sub-etc').className='extra show';
+    // 조립불량의 기존 텍스트 입력은 부품 드롭다운으로 대체됨
+    if(v)updatePartDD();
   } else if(curAct==='swp'){
     if(v==='기타'){document.getElementById('sub-etc').className='extra show';return;}
     if(v)updatePartDD();
@@ -612,6 +613,13 @@ function onDefect(v){
 function updatePartDD(){
   const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
   ['sub-part-frt','sub-part-rr','sub-part-both'].forEach(id=>document.getElementById(id).className='extra');
+  // 라벨: 수정 → "수정 부품", 교환 → "교환 부품"
+  const prefix = curAct === 'fix' ? '수정 부품' : '교환 부품';
+  const setLbl = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+  setLbl('hint-frt',      prefix + ' (FRT)');
+  setLbl('hint-rr',       prefix + ' (RR)');
+  setLbl('hint-both-frt', prefix + ' (FRT)');
+  setLbl('hint-both-rr',  prefix + ' (RR)');
   if(pos==='FRT')document.getElementById('sub-part-frt').className='extra show';
   else if(pos==='RR')document.getElementById('sub-part-rr').className='extra show';
   else document.getElementById('sub-part-both').className='extra show';
@@ -755,7 +763,7 @@ async function submitForm(){
   if(!defect){showToast('불량 유형을 선택해주세요');return;}
   if(!resp){showToast('책임구를 선택해주세요');return;}
 
-  const exchPart = curAct==='swp' ? getExchangePart() : '';
+  const exchPart = (curAct==='swp' || curAct==='fix') ? getExchangePart() : '';
 
   // 버튼 비활성화
   isSubmitting = true;
@@ -830,7 +838,7 @@ function makeListItem(r, i, source) {
           <span class="li-tag ${r.action==='수정'?'fix':'swp'}">${r.action}</span>
           <span class="li-title">${r.model||''} · ${r.position||''} · ${r.defect||''}</span>
         </div>
-        ${r.defect_sub?'<div class="li-sub" style="color:#0f3460;font-weight:600;">교환부품: '+r.defect_sub+'</div>':''}
+        ${r.defect_sub?'<div class="li-sub" style="color:#0f3460;font-weight:600;">'+(r.action==='수정'?'수정부품':'교환부품')+': '+r.defect_sub+'</div>':''}
         <div class="li-sub">C/NO ${r.cno||''} · ${r.color||''} · ${r.resp||''}</div>
         ${r.memo?'<div class="li-sub">'+r.memo+'</div>':''}
         ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
