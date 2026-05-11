@@ -303,6 +303,53 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         </select>
         <div class="extra" id="other-both-rr"><input class="inp" style="margin-top:7px;" type="text" placeholder="RR 부품명 직접 입력"></div>
       </div>
+      <!-- 수정 / 고무링말림 전용 : 센서 홀더 (LH 끝 = NO1) -->
+      <div class="extra" id="sub-holder-frt">
+        <div class="hint">수정 부품 (FRT)</div>
+        <select class="inp" id="holder-frt-sel">
+          <option value="">센서 홀더 선택</option>
+          <option>센서 홀더 NO1 (LH 끝)</option>
+          <option>센서 홀더 NO2</option>
+          <option>센서 홀더 NO3</option>
+          <option>센서 홀더 NO4</option>
+          <option>센서 홀더 NO5</option>
+          <option>센서 홀더 NO6 (RH 끝)</option>
+        </select>
+      </div>
+      <div class="extra" id="sub-holder-rr">
+        <div class="hint">수정 부품 (RR)</div>
+        <select class="inp" id="holder-rr-sel">
+          <option value="">센서 홀더 선택</option>
+          <option>센서 홀더 NO1 (LH 끝)</option>
+          <option>센서 홀더 NO2</option>
+          <option>센서 홀더 NO3</option>
+          <option>센서 홀더 NO4</option>
+          <option>센서 홀더 NO5</option>
+          <option>센서 홀더 NO6 (RH 끝)</option>
+        </select>
+      </div>
+      <div class="extra" id="sub-holder-both">
+        <div class="hint">수정 부품 (FRT)</div>
+        <select class="inp" id="holder-both-frt-sel" style="margin-bottom:7px;">
+          <option value="">센서 홀더 선택 (FRT)</option>
+          <option>센서 홀더 NO1 (LH 끝)</option>
+          <option>센서 홀더 NO2</option>
+          <option>센서 홀더 NO3</option>
+          <option>센서 홀더 NO4</option>
+          <option>센서 홀더 NO5</option>
+          <option>센서 홀더 NO6 (RH 끝)</option>
+        </select>
+        <div class="hint">수정 부품 (RR)</div>
+        <select class="inp" id="holder-both-rr-sel">
+          <option value="">센서 홀더 선택 (RR)</option>
+          <option>센서 홀더 NO1 (LH 끝)</option>
+          <option>센서 홀더 NO2</option>
+          <option>센서 홀더 NO3</option>
+          <option>센서 홀더 NO4</option>
+          <option>센서 홀더 NO5</option>
+          <option>센서 홀더 NO6 (RH 끝)</option>
+        </select>
+      </div>
     </div>
     <div class="card">
       <div class="sl">책임구 <span class="sl-sub">( 알카 귀책처 )</span></div>
@@ -584,7 +631,17 @@ function onCnoInput(el){el.value=el.value.replace(/[^0-9]/g,'').slice(0,4);}
 function onCnoFocus(el){const n=parseInt(el.value||'0',10);el.value=n>0?String(n):'';el.placeholder='숫자 입력';}
 function onCnoBlur(el){const r=el.value.replace(/[^0-9]/g,'');if(!r||r==='0000'){el.value='';el.placeholder='0001';return;}const n=Math.min(9999,Math.max(1,parseInt(r,10)));el.value=String(n).padStart(4,'0');}
 
-function pickB(g,el){document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));el.classList.add('on');if(g==='pos-grp'&&(curAct==='swp'||curAct==='fix')){const v=document.getElementById('defect-sel').value;if(v&&v!=='기타')updatePartDD();}}
+function pickB(g,el){
+  document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(g==='pos-grp'&&(curAct==='swp'||curAct==='fix')){
+    const v=document.getElementById('defect-sel').value;
+    if(v&&v!=='기타'){
+      if(curAct==='fix'&&v==='고무링말림') updateHolderDD();
+      else updatePartDD();
+    }
+  }
+}
 function pickR(el){document.querySelectorAll('.rb').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
 function pickAct(t){
   curAct=t;
@@ -597,18 +654,26 @@ function pickAct(t){
   document.getElementById('defect-card').style.display='block';
   hideAllSub();
 }
-function hideAllSub(){['sub-paint','sub-assembly','sub-etc','sub-part-frt','sub-part-rr','sub-part-both','other-frt','other-rr','other-both-frt','other-both-rr'].forEach(id=>document.getElementById(id).className='extra');}
+function hideAllSub(){['sub-paint','sub-assembly','sub-etc','sub-part-frt','sub-part-rr','sub-part-both','other-frt','other-rr','other-both-frt','other-both-rr','sub-holder-frt','sub-holder-rr','sub-holder-both'].forEach(id=>document.getElementById(id).className='extra');}
 function onDefect(v){
   hideAllSub();
   if(curAct==='fix'){
     if(v==='기타'){document.getElementById('sub-etc').className='extra show';return;}
+    if(v==='고무링말림'){updateHolderDD();return;}   // 센서 홀더 전용 드롭다운
     if(v==='도장불량')document.getElementById('sub-paint').className='extra show';
-    // 조립불량의 기존 텍스트 입력은 부품 드롭다운으로 대체됨
     if(v)updatePartDD();
   } else if(curAct==='swp'){
     if(v==='기타'){document.getElementById('sub-etc').className='extra show';return;}
     if(v)updatePartDD();
   }
+}
+// 고무링말림 전용 — 포지션별 센서 홀더 드롭다운 표시
+function updateHolderDD(){
+  const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
+  ['sub-holder-frt','sub-holder-rr','sub-holder-both'].forEach(id=>document.getElementById(id).className='extra');
+  if(pos==='FRT')       document.getElementById('sub-holder-frt').className='extra show';
+  else if(pos==='RR')   document.getElementById('sub-holder-rr').className='extra show';
+  else                  document.getElementById('sub-holder-both').className='extra show';
 }
 function updatePartDD(){
   const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
@@ -743,6 +808,21 @@ function getExchangePart(){
   return parts.filter(Boolean).join(' / ');
 }
 
+// 고무링말림 센서 홀더 선택값 수집
+function getHolderPart(){
+  const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
+  const sv = id => { const e=document.getElementById(id); return e?e.value:''; };
+  let parts=[];
+  if(pos==='FRT'){ const v=sv('holder-frt-sel'); if(v)parts.push(v); }
+  else if(pos==='RR'){ const v=sv('holder-rr-sel'); if(v)parts.push(v); }
+  else {
+    const vf=sv('holder-both-frt-sel'), vr=sv('holder-both-rr-sel');
+    if(vf)parts.push('FRT:'+vf);
+    if(vr)parts.push('RR:'+vr);
+  }
+  return parts.filter(Boolean).join(' / ');
+}
+
 // ★ 제출 — 중복 방지 처리
 async function submitForm(){
   if(isSubmitting) return; // 이미 제출 중이면 무시
@@ -763,7 +843,9 @@ async function submitForm(){
   if(!defect){showToast('불량 유형을 선택해주세요');return;}
   if(!resp){showToast('책임구를 선택해주세요');return;}
 
-  const exchPart = (curAct==='swp' || curAct==='fix') ? getExchangePart() : '';
+  const exchPart = curAct==='fix' && defect==='고무링말림'
+    ? getHolderPart()
+    : (curAct==='swp' || curAct==='fix') ? getExchangePart() : '';
 
   // 버튼 비활성화
   isSubmitting = true;
