@@ -225,7 +225,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       <div class="sl">구분</div>
       <div class="bg" id="pos-grp">
         <div class="bs" onclick="pickB('pos-grp',this)">FRT</div>
-        <div class="bs" onclick="pickB('pos-grp',this)">RR</div>
+        <div class="bs" id="rr-btn" onclick="pickB('pos-grp',this)">RR</div>
         <div class="bs" id="cpad-btn" style="display:none;" onclick="pickB('pos-grp',this)">C·PAD</div>
       </div>
     </div>
@@ -596,6 +596,14 @@ function setF(f) {
   try { showTab('input'); } finally { _navSilent = false; }
   document.getElementById('form-screen').style.display = 'flex';
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
+  // PU(3공장)는 RR 범퍼 없음 — 버튼 숨기고 혹시 선택돼 있으면 해제
+  const rrBtn = document.getElementById('rr-btn');
+  if(f==='3공장'){
+    rrBtn.style.display='none';
+    rrBtn.classList.remove('on');
+  } else {
+    rrBtn.style.display='';
+  }
   const mg = document.getElementById('model-grp');
   mg.innerHTML = '';
   CAR[f].forEach((m,i) => {
