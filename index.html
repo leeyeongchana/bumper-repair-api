@@ -739,6 +739,9 @@ function updateHolderDD(){
   else                  document.getElementById('sub-holder-both').className='extra show';
 }
 function updatePartDD(){
+  // 현재 선택된 차종을 읽어 FRT 부품 목록을 항상 최신 상태로 재빌드
+  const curModel = (document.querySelector('#model-grp .bs.on')||{}).textContent||'';
+  rebuildPartSelects(curModel);
   const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
   ['sub-part-frt','sub-part-rr','sub-part-both'].forEach(id=>document.getElementById(id).className='extra');
   // 라벨: 수정 → "수정 부품", 교환 → "교환 부품"
