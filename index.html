@@ -560,6 +560,65 @@ const CAR = {'1공장':['OV1','SP3'],'2공장':['NQ5 PE'],'3공장':['PU']};
 const DEFECTS_FIX = ['찍힘','긁힘','파손','도장불량','조립불량','고무링말림','티이물','기타'];
 const DEFECTS_SWP = ['찍힘','긁힘','파손','도장불량','조립불량','이종','기타'];
 
+// ── 차종별 FRT 교환 부품 목록 ───────────────────────────────────────────────
+const PARTS_FRT = {
+  'PU': [
+    'BUMPER ASSY-FR (프론트 범퍼 앗세이)',
+    'COVER-FR BUMPER UPR (페이스)',
+    'GRILLE-FR BUMPER (그릴)',
+    'L/PLATE (번호판 몰딩)',
+    '기타',
+  ],
+  '_default': [
+    'BUMPER ASSY-FR (프론트 범퍼 앗세이)',
+    'COVER-FR BUMPER UPR (페이스)',
+    'COVER-FR BUMPER LWR (로워)',
+    'GRILLE-RADIATOR (라디에이터그릴)',
+    'PIECE-RADIATOR GRILLE (그릴 피스)',
+    'COVER-RADIATOR GRILLE UPR (어퍼커버)',
+    'MOLDING-FR BUMPER LH (몰딩 LH)',
+    'MOLDING-FR BUMPER RH (몰딩 RH)',
+    'GRILLE-FR BUMPER (그릴)',
+    'SKID PLATE-FR BUMPER (프론트 스키드)',
+    'CAP-FR HOOK (후크캡)',
+    'LIP BUMPER (에어립)',
+    'L/PLATE (번호판 몰딩)',
+    '기타',
+  ],
+};
+
+// RR이 없는 차종
+const NO_RR_MODELS = ['PU'];
+
+// FRT select 옵션 동적 재구성
+function buildFrtOptions(sel, model){
+  const items = PARTS_FRT[model] || PARTS_FRT['_default'];
+  sel.innerHTML = '<option value="">부품 선택</option>';
+  items.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v === '기타' ? '기타' : v;
+    o.textContent = v === '기타' ? '기타 (직접 입력)' : v;
+    sel.appendChild(o);
+  });
+}
+function rebuildPartSelects(model){
+  const s1 = document.querySelector('#sub-part-frt select');
+  if(s1) buildFrtOptions(s1, model);
+  const sB = document.querySelectorAll('#sub-part-both select');
+  if(sB[0]) buildFrtOptions(sB[0], model); // sub-part-both의 FRT select
+}
+// 차종 변경 시 RR 버튼 / 부품 목록 한번에 업데이트
+function updateModelDependentUI(model){
+  const rrBtn = document.getElementById('rr-btn');
+  if(NO_RR_MODELS.includes(model)){
+    rrBtn.style.display = 'none';
+    rrBtn.classList.remove('on');
+  } else {
+    rrBtn.style.display = '';
+  }
+  rebuildPartSelects(model);
+}
+
 let curF='', curAct='', curTab='input';
 let photoFiles = [];
 let isSubmitting = false;   // ← 중복 제출 방지 플래그
@@ -596,14 +655,8 @@ function setF(f) {
   try { showTab('input'); } finally { _navSilent = false; }
   document.getElementById('form-screen').style.display = 'flex';
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
-  // PU(3공장)는 RR 범퍼 없음 — 버튼 숨기고 혹시 선택돼 있으면 해제
-  const rrBtn = document.getElementById('rr-btn');
-  if(f==='3공장'){
-    rrBtn.style.display='none';
-    rrBtn.classList.remove('on');
-  } else {
-    rrBtn.style.display='';
-  }
+  // 차종별 RR 버튼 / 부품 목록 업데이트 (첫 번째 차종 기준)
+  updateModelDependentUI(CAR[f][0]);
   const mg = document.getElementById('model-grp');
   mg.innerHTML = '';
   CAR[f].forEach((m,i) => {
@@ -642,6 +695,8 @@ function onCnoBlur(el){const r=el.value.replace(/[^0-9]/g,'');if(!r||r==='0000')
 function pickB(g,el){
   document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
+  // 차종 변경 시 RR 버튼·부품 목록 갱신
+  if(g==='model-grp') updateModelDependentUI(el.textContent);
   if(g==='pos-grp'&&(curAct==='swp'||curAct==='fix')){
     const v=document.getElementById('defect-sel').value;
     if(v&&v!=='기타'){
