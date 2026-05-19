@@ -303,6 +303,57 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         </select>
         <div class="extra" id="other-both-rr"><input class="inp" style="margin-top:7px;" type="text" placeholder="RR 부품명 직접 입력"></div>
       </div>
+      <!-- C·PAD 교환/수정 부품 -->
+      <div class="extra" id="sub-part-cpad">
+        <div class="hint" id="hint-cpad">교환 부품 (C·PAD)</div>
+        <select class="inp" id="cpad-part-sel" onchange="onCpadPartChange(this.value)">
+          <option value="">부품 선택</option>
+          <option value="글로브 박스">글로브 박스</option>
+          <option value="에어백">에어백</option>
+          <option value="카울바">카울바</option>
+          <option value="센터페시아">센터페시아</option>
+          <option value="클로스터페시아">클로스터페시아</option>
+          <option value="메인판넬">메인판넬</option>
+          <option value="노즐 LH">노즐 LH</option>
+          <option value="노즐 RH">노즐 RH</option>
+          <option value="에어벤트">에어벤트</option>
+          <option value="하네스">하네스</option>
+          <option value="클로스터 유닛">클로스터 유닛</option>
+          <option value="오디오">오디오</option>
+          <option value="센터 스위치(버튼)">센터 스위치(버튼)</option>
+          <option value="시가잭">시가잭</option>
+          <option value="히터컨트롤">히터컨트롤</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <!-- 글로브 박스 하위 -->
+        <div class="extra" id="sub-cpad-globebox">
+          <div class="hint">세부 부품</div>
+          <select class="inp" id="cpad-globebox-sel">
+            <option value="">선택하세요</option>
+            <option>리드</option><option>하우징</option><option>노브</option>
+          </select>
+        </div>
+        <!-- 에어벤트 하위 -->
+        <div class="extra" id="sub-cpad-vent">
+          <div class="hint">세부 부품</div>
+          <select class="inp" id="cpad-vent-sel">
+            <option value="">선택하세요</option>
+            <option>LH</option><option>CTR-LH</option><option>CTR-RH</option><option>RH</option>
+          </select>
+        </div>
+        <!-- 오디오 하위 -->
+        <div class="extra" id="sub-cpad-audio">
+          <div class="hint">세부 부품</div>
+          <select class="inp" id="cpad-audio-sel">
+            <option value="">선택하세요</option>
+            <option>IBU</option><option>ICU</option><option>USB</option><option>AVN(모니터)</option>
+          </select>
+        </div>
+        <!-- 기타 직접 입력 -->
+        <div class="extra" id="sub-cpad-etc">
+          <input class="inp" style="margin-top:7px;" id="cpad-etc-inp" type="text" placeholder="부품명 직접 입력">
+        </div>
+      </div>
       <!-- 수정 / 고무링말림 전용 : 센서 홀더 (LH 끝 = NO1) -->
       <div class="extra" id="sub-holder-frt">
         <div class="hint">수정 부품 (FRT)</div>
@@ -717,7 +768,7 @@ function pickAct(t){
   document.getElementById('defect-card').style.display='block';
   hideAllSub();
 }
-function hideAllSub(){['sub-paint','sub-assembly','sub-etc','sub-part-frt','sub-part-rr','sub-part-both','other-frt','other-rr','other-both-frt','other-both-rr','sub-holder-frt','sub-holder-rr','sub-holder-both'].forEach(id=>document.getElementById(id).className='extra');}
+function hideAllSub(){['sub-paint','sub-assembly','sub-etc','sub-part-frt','sub-part-rr','sub-part-both','sub-part-cpad','sub-cpad-globebox','sub-cpad-vent','sub-cpad-audio','sub-cpad-etc','other-frt','other-rr','other-both-frt','other-both-rr','sub-holder-frt','sub-holder-rr','sub-holder-both'].forEach(id=>document.getElementById(id).className='extra');}
 function onDefect(v){
   hideAllSub();
   if(curAct==='fix'){
@@ -743,7 +794,7 @@ function updatePartDD(){
   const curModel = (document.querySelector('#model-grp .bs.on')||{}).textContent||'';
   rebuildPartSelects(curModel);
   const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
-  ['sub-part-frt','sub-part-rr','sub-part-both'].forEach(id=>document.getElementById(id).className='extra');
+  ['sub-part-frt','sub-part-rr','sub-part-both','sub-part-cpad'].forEach(id=>document.getElementById(id).className='extra');
   // 라벨: 수정 → "수정 부품", 교환 → "교환 부품"
   const prefix = curAct === 'fix' ? '수정 부품' : '교환 부품';
   const setLbl = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
@@ -751,11 +802,21 @@ function updatePartDD(){
   setLbl('hint-rr',       prefix + ' (RR)');
   setLbl('hint-both-frt', prefix + ' (FRT)');
   setLbl('hint-both-rr',  prefix + ' (RR)');
+  setLbl('hint-cpad',     prefix + ' (C·PAD)');
   if(pos==='FRT')document.getElementById('sub-part-frt').className='extra show';
   else if(pos==='RR')document.getElementById('sub-part-rr').className='extra show';
+  else if(pos==='C·PAD')document.getElementById('sub-part-cpad').className='extra show';
   else document.getElementById('sub-part-both').className='extra show';
 }
 function onPartOther(sel,id){document.getElementById(id).className='extra'+(sel.value==='기타'?' show':'');}
+// C·PAD 부품 선택 시 하위 드롭다운 표시
+function onCpadPartChange(v){
+  ['sub-cpad-globebox','sub-cpad-vent','sub-cpad-audio','sub-cpad-etc'].forEach(id=>document.getElementById(id).className='extra');
+  if(v==='글로브 박스')document.getElementById('sub-cpad-globebox').className='extra show';
+  else if(v==='에어벤트')document.getElementById('sub-cpad-vent').className='extra show';
+  else if(v==='오디오')document.getElementById('sub-cpad-audio').className='extra show';
+  else if(v==='기타')document.getElementById('sub-cpad-etc').className='extra show';
+}
 
 // 사진 - 누적식: 클릭할 때마다 추가, 최대 3장
 let photoB64 = [];          // 압축 완료된 base64 (누적)
@@ -865,6 +926,16 @@ function getExchangePart(){
   let parts=[];
   if(pos==='FRT'){const v=selVal('sub-part-frt');if(v)parts.push(resolve(v,'other-frt'));}
   else if(pos==='RR'){const v=selVal('sub-part-rr');if(v)parts.push(resolve(v,'other-rr'));}
+  else if(pos==='C·PAD'){
+    const main=document.getElementById('cpad-part-sel').value;
+    if(main){
+      if(main==='글로브 박스'){const sub=document.getElementById('cpad-globebox-sel').value;parts.push('글로브 박스'+(sub?' '+sub:''));}
+      else if(main==='에어벤트'){const sub=document.getElementById('cpad-vent-sel').value;parts.push('에어벤트'+(sub?' '+sub:''));}
+      else if(main==='오디오'){const sub=document.getElementById('cpad-audio-sel').value;parts.push('오디오'+(sub?' '+sub:''));}
+      else if(main==='기타'){const t=document.getElementById('cpad-etc-inp').value.trim();parts.push(t||'기타');}
+      else parts.push(main);
+    }
+  }
   else {
     const sels=document.querySelectorAll('#sub-part-both select');
     const vbf=sels[0]?sels[0].value:'';const vbr=sels[1]?sels[1].value:'';
