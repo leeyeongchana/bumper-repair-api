@@ -195,8 +195,8 @@ def delete_all_records():
     conn.close()
     return {"ok": True, "message": "전체 삭제 완료"}
 
-# ── 헬스체크 ──────────────────────────────────────────────────────────────────
-@app.get("/health")
+# ── 헬스체크 (GET + HEAD 모두 허용 — UptimeRobot은 HEAD 방식 사용) ─────────────
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok", "time": datetime.now().isoformat()}
 
