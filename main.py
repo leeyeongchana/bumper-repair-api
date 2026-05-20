@@ -66,6 +66,37 @@ def init_db():
 
 init_db()
 
+# ── PWA 아이콘 자동 생성 (외부 라이브러리 불필요) ────────────────────────────
+import struct as _struct
+import zlib as _zlib
+
+def _make_blue_png(size: int) -> bytes:
+    """#0f3460 단색 PNG 생성 (Python stdlib 만 사용)."""
+    r, g, b = 0x0f, 0x34, 0x60
+    row = bytes([0] + [r, g, b] * size)   # filter=None + RGB pixels
+    raw = row * size
+    compressed = _zlib.compress(raw)
+
+    def ck(tag: bytes, data: bytes) -> bytes:
+        payload = tag + data
+        return (_struct.pack('>I', len(data))
+                + payload
+                + _struct.pack('>I', _zlib.crc32(payload) & 0xFFFFFFFF))
+
+    return (b'\x89PNG\r\n\x1a\n'
+            + ck(b'IHDR', _struct.pack('>IIBBBBB', size, size, 8, 2, 0, 0, 0))
+            + ck(b'IDAT', compressed)
+            + ck(b'IEND', b''))
+
+def init_icons():
+    for fname, size in [('icon-192.png', 192), ('icon-512.png', 512)]:
+        path = os.path.join(BASE_DIR, fname)
+        if not os.path.exists(path):
+            with open(path, 'wb') as f:
+                f.write(_make_blue_png(size))
+
+init_icons()
+
 # ── App ────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="범퍼 수정일지 API")
 
@@ -304,6 +335,27 @@ def serve_index():
 @app.get("/dashboard")
 def serve_dashboard():
     return FileResponse(os.path.join(BASE_DIR, "dashboard.html"))
+
+# ── PWA 파일 라우트 ──────────────────────────────────────────────────────────
+@app.get("/manifest.json")
+def serve_manifest():
+    return FileResponse(os.path.join(BASE_DIR, "manifest.json"),
+                        media_type="application/manifest+json")
+
+@app.get("/sw.js")
+def serve_sw():
+    return FileResponse(os.path.join(BASE_DIR, "sw.js"),
+                        media_type="application/javascript")
+
+@app.get("/icon-192.png")
+def serve_icon192():
+    return FileResponse(os.path.join(BASE_DIR, "icon-192.png"),
+                        media_type="image/png")
+
+@app.get("/icon-512.png")
+def serve_icon512():
+    return FileResponse(os.path.join(BASE_DIR, "icon-512.png"),
+                        media_type="image/png")
 
 # ── 정적 파일 (CSS/JS 등) ─────────────────────────────────────────────────────
 STATIC_DIR = os.path.join(BASE_DIR, "static")
