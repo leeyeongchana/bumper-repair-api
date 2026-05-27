@@ -1261,21 +1261,23 @@ function openEditFromModal(){
 }
 async function confirmDelete() {
   if(!pendingDeleteId) return;
+  const idToDelete = pendingDeleteId;         // closeDelModal이 null로 초기화하기 전에 저장
+  const srcToDelete = pendingDeleteSource;
   closeDelModal();
   try {
-    const res = await fetch(API+'/records/'+pendingDeleteId, {method:'DELETE'});
+    const res = await fetch(API+'/records/'+idToDelete, {method:'DELETE'});
     if(res.ok){
       showToast('삭제 완료');
       // 화면에서 해당 아이템 제거
-      const el = document.getElementById('item-'+pendingDeleteId);
+      const el = document.getElementById('item-'+idToDelete);
       if(el) el.remove();
       // 목록 카운트 업데이트
-      if(pendingDeleteSource==='list') {
+      if(srcToDelete==='list') {
         const cnt = document.querySelectorAll('#list-body .list-item').length;
         document.getElementById('list-cnt').textContent=cnt;
         if(cnt===0) document.getElementById('list-body').innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">아직 입력된 내역이 없어요</div></div>';
       }
-      if(pendingDeleteSource==='cal') {
+      if(srcToDelete==='cal') {
         // 캘린더 상세에서 삭제 시 카운트 재표시
         const remaining = document.querySelectorAll('#cal-detail .list-item').length;
         const hdr = document.querySelector('#cal-detail .cal-detail-hdr');
