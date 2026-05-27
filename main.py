@@ -12,45 +12,101 @@ import json
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ── SQLite (로컬 파일) ─────────────────────────────────────────────────────────
-# 별도 DB 서버 없이 작동. main.py와 같은 폴더의 bumper_log.db 파일을 사용.
-import sqlite3
+# ── DB 레이어: DATABASE_URL 있으면 PostgreSQL, 없으면 SQLite ─────────────────
+DATABASE_URL = os.environ.get("DATABASE_URL")          # Render 환경변수에서 읽음
+USE_PG = bool(DATABASE_URL)
 
-DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "bumper_log.db"))
+if USE_PG:
+    import psycopg2
+    import psycopg2.extras
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    def get_db():
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.cursor_factory = psycopg2.extras.RealDictCursor
+        return conn
+
+    def _sql(q: str) -> str:
+        """SQLite ? 플레이스홀더 → PostgreSQL %s 로 변환"""
+        return q.replace("?", "%s")
+
+    def _row_to_dict(r) -> dict:
+        return dict(r)
+
+else:
+    import sqlite3
+
+    DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "bumper_log.db"))
+
+    def get_db():
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _sql(q: str) -> str:
+        return q          # SQLite는 ? 그대로 사용
+
+    def _row_to_dict(r) -> dict:
+        return dict(r)
+
 
 def init_db():
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS records (
-            id                INTEGER PRIMARY KEY AUTOINCREMENT,
-            factory           TEXT,
-            model             TEXT,
-            position          TEXT,
-            cno               TEXT,
-            color             TEXT,
-            action            TEXT,
-            defect            TEXT,
-            defect_sub        TEXT,
-            resp              TEXT,
-            memo              TEXT,
-            markers           TEXT,
-            photos            TEXT,
-            submitted_at      TEXT,
-            date              TEXT,
-            submitted_by_id   TEXT,
-            submitted_by_name TEXT,
-            submitted_by_dept TEXT
-        )
-    """)
-    # 기존 테이블에 누락된 컬럼이 있으면 ALTER로 추가
-    cur.execute("PRAGMA table_info(records)")
-    existing_cols = {row[1] for row in cur.fetchall()}
+    if USE_PG:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS records (
+                id                SERIAL PRIMARY KEY,
+                factory           TEXT,
+                model             TEXT,
+                position          TEXT,
+                cno               TEXT,
+                color             TEXT,
+                action            TEXT,
+                defect            TEXT,
+                defect_sub        TEXT,
+                resp              TEXT,
+                memo              TEXT,
+                markers           TEXT,
+                photos            TEXT,
+                submitted_at      TEXT,
+                date              TEXT,
+                submitted_by_id   TEXT,
+                submitted_by_name TEXT,
+                submitted_by_dept TEXT
+            )
+        """)
+        # PostgreSQL: 누락 컬럼 추가 (information_schema 사용)
+        cur.execute("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name='records'
+        """)
+        existing_cols = {row["column_name"] for row in cur.fetchall()}
+    else:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS records (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                factory           TEXT,
+                model             TEXT,
+                position          TEXT,
+                cno               TEXT,
+                color             TEXT,
+                action            TEXT,
+                defect            TEXT,
+                defect_sub        TEXT,
+                resp              TEXT,
+                memo              TEXT,
+                markers           TEXT,
+                photos            TEXT,
+                submitted_at      TEXT,
+                date              TEXT,
+                submitted_by_id   TEXT,
+                submitted_by_name TEXT,
+                submitted_by_dept TEXT
+            )
+        """)
+        cur.execute("PRAGMA table_info(records)")
+        existing_cols = {row[1] for row in cur.fetchall()}
+
     for col, typ in [
         ("photos",            "TEXT"),
         ("submitted_by_id",   "TEXT"),
@@ -133,13 +189,7 @@ async def submit_record(record: Record):
     now = datetime.now(KST)   # 한국 표준시 기준으로 날짜/시간 저장
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO records
-        (factory, model, position, cno, color, action, defect, defect_sub,
-         resp, memo, markers, photos, submitted_at, date,
-         submitted_by_id, submitted_by_name, submitted_by_dept)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (
+    params = (
         record.factory, record.model, record.position,
         record.cno, record.color, record.action,
         record.defect, record.defect_sub,
@@ -151,8 +201,20 @@ async def submit_record(record: Record):
         record.submitted_by_id,
         record.submitted_by_name,
         record.submitted_by_dept,
-    ))
-    new_id = cur.lastrowid
+    )
+    base_sql = """
+        INSERT INTO records
+        (factory, model, position, cno, color, action, defect, defect_sub,
+         resp, memo, markers, photos, submitted_at, date,
+         submitted_by_id, submitted_by_name, submitted_by_dept)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """
+    if USE_PG:
+        cur.execute(_sql(base_sql) + " RETURNING id", params)
+        new_id = cur.fetchone()["id"]
+    else:
+        cur.execute(base_sql, params)
+        new_id = cur.lastrowid
     conn.commit()
     cur.close()
     conn.close()
@@ -175,13 +237,13 @@ def get_records(
         q += " AND factory=?"; params.append(factory)
     q += " ORDER BY submitted_at DESC LIMIT ?"
     params.append(limit)
-    cur.execute(q, params)
+    cur.execute(_sql(q), params)
     rows = cur.fetchall()
     cur.close()
     conn.close()
     result = []
     for r in rows:
-        d = dict(r)
+        d = _row_to_dict(r)
         d['markers'] = json.loads(d.get('markers') or '[]')
         d['photos'] = json.loads(d.get('photos') or '[]')
         result.append(d)
@@ -190,21 +252,32 @@ def get_records(
 # ── 월별 요약 ──────────────────────────────────────────────────────────────────
 @app.get("/records/summary")
 def get_summary(
-    year:  int = Query(datetime.now().year),
-    month: int = Query(datetime.now().month),
+    year:  Optional[int] = Query(None),
+    month: Optional[int] = Query(None),
 ):
+    now_kst = datetime.now(KST)
+    if year  is None: year  = now_kst.year
+    if month is None: month = now_kst.month
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT date, COUNT(*) as cnt
-        FROM records
-        WHERE substr(date,1,4)=? AND substr(date,6,2)=?
-        GROUP BY date
-    """, (str(year), str(month).zfill(2)))
+    if USE_PG:
+        cur.execute(_sql("""
+            SELECT date, COUNT(*) as cnt
+            FROM records
+            WHERE date LIKE ?
+            GROUP BY date
+        """), (f"{year}-{str(month).zfill(2)}-%",))
+    else:
+        cur.execute("""
+            SELECT date, COUNT(*) as cnt
+            FROM records
+            WHERE substr(date,1,4)=? AND substr(date,6,2)=?
+            GROUP BY date
+        """, (str(year), str(month).zfill(2)))
     rows = cur.fetchall()
     cur.close()
     conn.close()
-    return {r["date"]: r["cnt"] for r in rows}
+    return {_row_to_dict(r)["date"]: _row_to_dict(r)["cnt"] for r in rows}
 
 # ── 단건 수정 ──────────────────────────────────────────────────────────────────
 class PatchRecord(BaseModel):
@@ -219,11 +292,11 @@ class PatchRecord(BaseModel):
 def update_record(record_id: int, patch: PatchRecord):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(_sql("""
         UPDATE records SET
           action=?, cno=?, defect=?, defect_sub=?, resp=?, memo=?
         WHERE id=?
-    """, (
+    """), (
         patch.action, patch.cno, patch.defect,
         patch.defect_sub, patch.resp, patch.memo,
         record_id
@@ -238,7 +311,7 @@ def update_record(record_id: int, patch: PatchRecord):
 def delete_record(record_id: int):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("DELETE FROM records WHERE id=?", (record_id,))
+    cur.execute(_sql("DELETE FROM records WHERE id=?"), (record_id,))
     conn.commit()
     cur.close()
     conn.close()
