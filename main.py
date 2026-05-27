@@ -329,9 +329,20 @@ def delete_all_records():
     return {"ok": True, "message": "전체 삭제 완료"}
 
 # ── 헬스체크 (GET + HEAD 모두 허용 — UptimeRobot은 HEAD 방식 사용) ─────────────
+# DB 쿼리 포함 → UptimeRobot 10분 핑으로 Supabase 자동 활성 유지 (휴가 기간도 안전)
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
-    return {"status": "ok", "time": datetime.now().isoformat()}
+    db_ok = False
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        conn.close()
+        db_ok = True
+    except Exception:
+        pass
+    return {"status": "ok", "db": db_ok, "time": datetime.now(KST).isoformat()}
 
 # ── 사번 로그인 프록시 ────────────────────────────────────────────────────────
 # selfservice.icams.co.kr 의 ERP 인증 API를 서버에서 대리 호출.
