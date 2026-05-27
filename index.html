@@ -234,11 +234,11 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 <div class="fs" id="form-screen">
   <div class="bb" onclick="goSetup()"><div class="ba">←</div><div class="bt">공장 변경</div></div>
   <div class="scroll-body" id="form-body">
-    <div class="card">
+    <div class="card" id="card-model">
       <div class="sl">차종</div>
       <div class="bg" id="model-grp"></div>
     </div>
-    <div class="card">
+    <div class="card" id="card-pos">
       <div class="sl">구분</div>
       <div class="bg" id="pos-grp">
         <div class="bs" onclick="pickB('pos-grp',this)">FRT</div>
@@ -246,16 +246,16 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         <div class="bs" id="cpad-btn" style="display:none;" onclick="pickB('pos-grp',this)">C·PAD</div>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="card-cno">
       <div class="sl">C/NO</div>
       <input class="cno-inp" id="cno-inp" type="text" inputmode="numeric" maxlength="4" placeholder="0001" autocomplete="off"
         oninput="onCnoInput(this)" onblur="onCnoBlur(this)" onfocus="onCnoFocus(this)">
     </div>
-    <div class="card">
+    <div class="card" id="card-color">
       <div class="sl">색상 코드</div>
       <select class="inp" id="color-sel"><option value="">선택하세요</option></select>
     </div>
-    <div class="card">
+    <div class="card" id="card-act">
       <div class="sl">조치사항</div>
       <div class="act-row">
         <div class="act" id="act-fix" onclick="pickAct('fix')">수정</div>
@@ -419,7 +419,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         </select>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="card-resp">
       <div class="sl">책임구 <span class="sl-sub">( 알카 귀책처 )</span></div>
       <div class="resp-row">
         <div class="rb" onclick="pickR(this)">캠스</div>
@@ -427,7 +427,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
         <div class="rb" onclick="pickR(this)">복합</div>
       </div>
     </div>
-    <div class="card">
+    <div class="card" id="card-photo">
       <div class="sl">불량 사진 <span class="sl-badge">선택</span></div>
       <div class="photo-zone" onclick="openPhotoPicker()">
         <div style="font-size:24px;">📷</div>
@@ -438,7 +438,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       <div id="photo-status" style="font-size:12px;font-weight:700;margin-top:6px;text-align:center;min-height:16px;"></div>
       <div id="photo-input-wrap" style="display:none;"></div>
     </div>
-    <div class="card">
+    <div class="card" id="card-memo">
       <div class="sl">비고 <span class="sl-badge">선택</span></div>
       <textarea class="inp" id="memo" placeholder="추가 내용 입력..."></textarea>
     </div>
@@ -701,6 +701,21 @@ const PARTS_FRT = {
 // RR이 없는 차종
 const NO_RR_MODELS = ['PU'];
 
+// 2공장 전용 폼 카드 순서 재배열
+function reorderFormCards(factory){
+  const body = document.getElementById('form-body');
+  const submitBtn = document.getElementById('submit-btn');
+  // 기본 순서: 차종 → 구분 → C/NO → 색상 → 조치사항 → 불량 → 책임구 → 사진 → 메모
+  // 2공장 순서: 차종 → C/NO → 구분 → 조치사항 → 불량 → 색상 → 책임구 → 사진 → 메모
+  const order2 =       ['card-model','card-cno','card-pos','card-act','defect-card','card-color','card-resp','card-photo','card-memo'];
+  const orderDefault = ['card-model','card-pos','card-cno','card-color','card-act','defect-card','card-resp','card-photo','card-memo'];
+  const order = factory === '2공장' ? order2 : orderDefault;
+  order.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) body.insertBefore(el, submitBtn);
+  });
+}
+
 // FRT select 옵션 동적 재구성
 function buildFrtOptions(sel, model){
   const items = PARTS_FRT[model] || PARTS_FRT['_default'];
@@ -770,6 +785,8 @@ function setF(f) {
   try { showTab('input'); } finally { _navSilent = false; }
   document.getElementById('form-screen').style.display = 'flex';
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
+  // 2공장 전용 폼 카드 순서 적용
+  reorderFormCards(f);
   // 차종별 RR 버튼 / 부품 목록 업데이트 (첫 번째 차종 기준)
   updateModelDependentUI(CAR[f][0]);
   const mg = document.getElementById('model-grp');
