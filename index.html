@@ -473,14 +473,15 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   </div>
 </div>
 
-<!-- 삭제 확인 모달 -->
+<!-- 기록 관리 모달 (취소/수정/삭제) -->
 <div class="modal-overlay" id="del-modal" style="display:none;">
   <div class="modal">
-    <div class="modal-title">⚠️ 삭제 확인</div>
-    <div class="modal-msg" id="del-modal-msg">이 항목을 삭제할까요?<br>삭제 후 복구할 수 없습니다.</div>
-    <div class="modal-btns">
-      <button class="modal-cancel" onclick="closeDelModal()">취소</button>
-      <button class="modal-confirm" onclick="confirmDelete()">삭제</button>
+    <div class="modal-title">📋 기록 관리</div>
+    <div class="modal-msg" id="del-modal-msg">이 기록을 수정하거나 삭제할 수 있어요.</div>
+    <div class="modal-btns" style="display:flex;gap:8px;">
+      <button class="modal-cancel" onclick="closeDelModal()" style="flex:1;">취소</button>
+      <button onclick="openEditFromModal()" style="flex:1;padding:12px;background:#e0f2fe;border:none;border-radius:10px;font-size:14px;font-weight:700;color:#0369a1;cursor:pointer;font-family:inherit;">✏ 수정</button>
+      <button class="modal-confirm" onclick="confirmDelete()" style="flex:1;">삭제</button>
     </div>
   </div>
 </div>
@@ -1126,10 +1127,7 @@ function makeListItem(r, i, source) {
         ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
         <div class="li-time">${r.submitted_at?r.submitted_at.slice(11,16):''}</div>
       </div>
-      <div class="li-btns">
-        <button class="edit-btn" onclick="openEditModal(${r.id},'${source}')" title="수정">✏</button>
-        <button class="del-btn" onclick="askDelete(${r.id},'${source}')" title="삭제">✕</button>
-      </div>
+      <button class="del-btn" onclick="askDelete(${r.id},'${source}')" title="관리">✕</button>
     </div>`;
 }
 
@@ -1164,6 +1162,12 @@ function closeDelModal() {
   document.getElementById('del-modal').style.display='none';
   pendingDeleteId = null;
   pendingDeleteSource = null;
+}
+function openEditFromModal(){
+  const id  = pendingDeleteId;
+  const src = pendingDeleteSource;
+  closeDelModal();          // pendingDeleteId 초기화 전에 저장
+  openEditModal(id, src);
 }
 async function confirmDelete() {
   if(!pendingDeleteId) return;
