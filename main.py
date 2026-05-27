@@ -443,7 +443,10 @@ async def auth_login(payload: LoginPayload):
 # ── HTML 페이지 라우트 ────────────────────────────────────────────────────────
 @app.get("/")
 def serve_index():
-    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+    return FileResponse(
+        os.path.join(BASE_DIR, "index.html"),
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
 
 @app.get("/dashboard")
 def serve_dashboard():
