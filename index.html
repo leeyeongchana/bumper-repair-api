@@ -212,6 +212,9 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       onkeypress="if(event.key==='Enter') document.getElementById('login-pw').focus();">
     <input class="lg-inp" id="login-pw" type="password" placeholder="비밀번호"
       autocomplete="current-password"
+      onkeypress="if(event.key==='Enter') document.getElementById('login-name').focus();">
+    <input class="lg-inp" id="login-name" type="text" placeholder="이름 (자동입력 안될 때 직접 입력)"
+      autocomplete="name"
       onkeypress="if(event.key==='Enter') doLogin();">
     <div class="lg-err" id="login-err"></div>
     <button class="lg-btn" id="login-btn" onclick="doLogin()">로그인</button>
@@ -635,9 +638,10 @@ function saveEmployee(emp){
   localStorage.setItem(LS_AUTH_KEY, JSON.stringify(safe));
 }
 async function doLogin(){
-  const empId = document.getElementById('login-empid').value.trim();
-  const pw    = document.getElementById('login-pw').value;
-  const errEl = document.getElementById('login-err');
+  const empId   = document.getElementById('login-empid').value.trim();
+  const pw      = document.getElementById('login-pw').value;
+  const nameInp = (document.getElementById('login-name').value || '').trim();
+  const errEl   = document.getElementById('login-err');
   errEl.textContent = '';
   if(!empId || !pw){
     errEl.textContent = '사번과 비밀번호를 모두 입력해주세요';
@@ -650,11 +654,14 @@ async function doLogin(){
     const res = await fetch(API+'/auth/login', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({employeeId: empId, password: pw})
+      body: JSON.stringify({employeeId: empId, password: pw, name: nameInp})
     });
     const data = await res.json();
     if(data.authenticated && data.employee){
-      saveEmployee({...data.employee, employeeId: empId});
+      // ICAMS가 이름을 못 줬을 때 직접 입력한 이름 사용
+      const emp = {...data.employee, employeeId: empId};
+      if(!emp.name && nameInp) emp.name = nameInp;
+      saveEmployee(emp);
       onLoggedIn();
     } else {
       errEl.textContent = data.error || '로그인 실패';

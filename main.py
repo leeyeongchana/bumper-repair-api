@@ -390,6 +390,7 @@ def _normalize_employee(emp):
 class LoginPayload(BaseModel):
     employeeId: str = ""
     password:   str = ""
+    name:       str = ""   # 이름 자동입력 실패 시 직접 입력값
 
 @app.post("/auth/login")
 async def auth_login(payload: LoginPayload):
@@ -417,6 +418,9 @@ async def auth_login(payload: LoginPayload):
             data = json.loads(raw) if raw else {}
         if isinstance(data, dict) and data.get("authenticated"):
             employee = _normalize_employee(_strip_sensitive(data.get("employee") or {}))
+            # ICAMS가 이름을 안 줬을 때 직접 입력값으로 보완
+            if not employee.get("name") and payload.name:
+                employee["name"] = payload.name
             return {"authenticated": True, "employee": employee}
         upstream_failed = True  # 200이지만 인증 실패
     except _urlerr.HTTPError as e:
@@ -432,7 +436,7 @@ async def auth_login(payload: LoginPayload):
             "authenticated": True,
             "employee": {
                 "employeeId": payload.employeeId,
-                "name":       f"사번 {payload.employeeId}",
+                "name":       payload.name or f"사번 {payload.employeeId}",
                 "department": "",
                 "_initialLogin": True,
             },
