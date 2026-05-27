@@ -3,7 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))   # UTC+9 한국 표준시
 from typing import Optional
 from pydantic import BaseModel
 import json
@@ -128,7 +130,7 @@ class Record(BaseModel):
 # ── 제출 ───────────────────────────────────────────────────────────────────────
 @app.post("/submit")
 async def submit_record(record: Record):
-    now = datetime.now()
+    now = datetime.now(KST)   # 한국 표준시 기준으로 날짜/시간 저장
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
@@ -203,6 +205,33 @@ def get_summary(
     cur.close()
     conn.close()
     return {r["date"]: r["cnt"] for r in rows}
+
+# ── 단건 수정 ──────────────────────────────────────────────────────────────────
+class PatchRecord(BaseModel):
+    action:     str = ""
+    cno:        str = ""
+    defect:     str = ""
+    defect_sub: str = ""
+    resp:       str = ""
+    memo:       str = ""
+
+@app.put("/records/{record_id}")
+def update_record(record_id: int, patch: PatchRecord):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE records SET
+          action=?, cno=?, defect=?, defect_sub=?, resp=?, memo=?
+        WHERE id=?
+    """, (
+        patch.action, patch.cno, patch.defect,
+        patch.defect_sub, patch.resp, patch.memo,
+        record_id
+    ))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return {"ok": True, "message": "수정 완료"}
 
 # ── 단건 삭제 ──────────────────────────────────────────────────────────────────
 @app.delete("/records/{record_id}")

@@ -85,8 +85,17 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 .li-sub{font-size:11px;color:#94a3b8;margin-top:2px;}
 .li-time{font-size:10px;color:#b0bac6;margin-top:3px;}
 /* 삭제 버튼 */
-.del-btn{width:28px;height:28px;border-radius:50%;background:#fee2e2;border:none;color:#e84040;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;-webkit-tap-highlight-color:transparent;}
+.del-btn{width:28px;height:28px;border-radius:50%;background:#fee2e2;border:none;color:#e84040;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .del-btn:active{background:#fecaca;}
+.edit-btn{width:28px;height:28px;border-radius:50%;background:#e0f2fe;border:none;color:#0369a1;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.edit-btn:active{background:#bae6fd;}
+.li-btns{display:flex;flex-direction:column;gap:5px;align-items:center;flex-shrink:0;margin-top:1px;}
+/* 수정 모달 (바텀 시트) */
+.emodal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:flex-end;justify-content:center;}
+.emodal{background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-height:88vh;overflow-y:auto;}
+.emodal-title{font-size:16px;font-weight:700;color:#0f3460;margin-bottom:16px;}
+.emodal-field{margin-bottom:13px;}
+.emodal-label{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.05em;margin-bottom:6px;}
 /* 삭제 확인 모달 */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px;}
 .modal{background:#fff;border-radius:20px;padding:24px;width:100%;max-width:320px;}
@@ -476,6 +485,48 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   </div>
 </div>
 
+<!-- 수정 모달 (바텀 시트) -->
+<div class="emodal-overlay" id="edit-modal" style="display:none;">
+  <div class="emodal">
+    <div class="emodal-title">✏ 기록 수정</div>
+    <div class="emodal-field">
+      <div class="emodal-label">조치사항</div>
+      <div class="act-row">
+        <div class="act" id="eact-fix" onclick="ePickAct('fix')">수정</div>
+        <div class="act" id="eact-swp" onclick="ePickAct('swp')">교환</div>
+      </div>
+    </div>
+    <div class="emodal-field">
+      <div class="emodal-label">C/NO</div>
+      <input class="inp cno-inp" id="e-cno" type="text" inputmode="numeric" maxlength="4" style="text-align:center;letter-spacing:3px;">
+    </div>
+    <div class="emodal-field">
+      <div class="emodal-label">불량 유형</div>
+      <input class="inp" id="e-defect" type="text" placeholder="예) 찍힘, 긁힘, 도장불량">
+    </div>
+    <div class="emodal-field">
+      <div class="emodal-label" id="e-sub-label">교환/수정 부품</div>
+      <input class="inp" id="e-defect-sub" type="text" placeholder="부품명 입력 (없으면 비워도 됨)">
+    </div>
+    <div class="emodal-field">
+      <div class="emodal-label">귀책처</div>
+      <div class="resp-row">
+        <div class="bs" id="er-cams" onclick="ePickResp('캠스')">캠스</div>
+        <div class="bs" id="er-kia" onclick="ePickResp('기아')">기아</div>
+        <div class="bs" id="er-mix" onclick="ePickResp('복합')">복합</div>
+      </div>
+    </div>
+    <div class="emodal-field">
+      <div class="emodal-label">메모</div>
+      <textarea class="inp" id="e-memo" style="height:60px;resize:none;"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="closeEditModal()" class="modal-cancel" style="flex:1;">취소</button>
+      <button onclick="confirmEdit()" id="edit-confirm-btn" style="flex:2;padding:12px;border:none;border-radius:10px;background:#0f3460;font-size:14px;font-weight:700;color:#fff;cursor:pointer;font-family:inherit;">수정 완료</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -683,6 +734,10 @@ let photoFiles = [];
 let isSubmitting = false;   // ← 중복 제출 방지 플래그
 let pendingDeleteId = null; // ← 삭제 대기 ID
 let pendingDeleteSource = null; // 'list' or 'cal'
+let _listData = [];           // 오늘 목록 캐시 (수정 모달에서 pre-fill용)
+let _pendingEditId = null;
+let _editAct = 'fix';
+let _editResp = '';
 
 // 날짜
 const D=new Date(), DY=['일','월','화','수','목','금','토'];
@@ -1071,7 +1126,10 @@ function makeListItem(r, i, source) {
         ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
         <div class="li-time">${r.submitted_at?r.submitted_at.slice(11,16):''}</div>
       </div>
-      <button class="del-btn" onclick="askDelete(${r.id},'${source}')" title="삭제">✕</button>
+      <div class="li-btns">
+        <button class="edit-btn" onclick="openEditModal(${r.id},'${source}')" title="수정">✏</button>
+        <button class="del-btn" onclick="askDelete(${r.id},'${source}')" title="삭제">✕</button>
+      </div>
     </div>`;
 }
 
@@ -1084,6 +1142,7 @@ async function renderList(){
   try{
     const res=await fetch(API+'/records?date='+todayStr+'&factory='+encodeURIComponent(curF));
     const data=await res.json();
+    _listData = data;  // 수정 모달 pre-fill 용 캐시
     document.getElementById('list-cnt').textContent=data.length;
     if(!data.length){
       body.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">아직 입력된 내역이 없어요</div><div class="empty-sub">입력 탭에서 수정일지를 작성해주세요</div></div>';
@@ -1135,6 +1194,67 @@ async function confirmDelete() {
   } catch(e) {
     showToast('네트워크 오류');
   }
+}
+
+// ★ 수정 모달
+function openEditModal(id, source){
+  const r = _listData.find(x => x.id === id) || {};
+  _pendingEditId = id;
+  // 필드 채우기
+  document.getElementById('e-cno').value = r.cno || '';
+  document.getElementById('e-defect').value = r.defect || '';
+  document.getElementById('e-defect-sub').value = r.defect_sub || '';
+  document.getElementById('e-memo').value = r.memo || '';
+  // 조치사항
+  const act = r.action === '교환' ? 'swp' : 'fix';
+  ePickAct(act);
+  // 귀책처
+  ePickResp(r.resp || '');
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+function closeEditModal(){
+  document.getElementById('edit-modal').style.display = 'none';
+  _pendingEditId = null;
+}
+function ePickAct(t){
+  _editAct = t;
+  document.getElementById('eact-fix').className = 'act' + (t==='fix' ? ' sel-fix' : '');
+  document.getElementById('eact-swp').className = 'act' + (t==='swp' ? ' sel-swp' : '');
+  document.getElementById('e-sub-label').textContent = (t==='fix' ? '수정 부품' : '교환 부품');
+}
+function ePickResp(v){
+  _editResp = v;
+  const map = {'캠스':'er-cams','기아':'er-kia','복합':'er-mix'};
+  Object.entries(map).forEach(([k,id])=>{
+    document.getElementById(id).className = 'bs' + (k===v ? ' on' : '');
+  });
+}
+async function confirmEdit(){
+  if(!_pendingEditId) return;
+  const btn = document.getElementById('edit-confirm-btn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try{
+    const res = await fetch(API+'/records/'+_pendingEditId, {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        action:     _editAct === 'fix' ? '수정' : '교환',
+        cno:        document.getElementById('e-cno').value,
+        defect:     document.getElementById('e-defect').value,
+        defect_sub: document.getElementById('e-defect-sub').value,
+        resp:       _editResp,
+        memo:       document.getElementById('e-memo').value,
+      })
+    });
+    if(res.ok){
+      closeEditModal();
+      showToast('수정 완료 ✓');
+      renderList();
+    } else {
+      showToast('수정 실패 — 다시 시도해주세요');
+    }
+  } catch(e){ showToast('네트워크 오류'); }
+  finally{ btn.disabled=false; btn.textContent='수정 완료'; }
 }
 
 // ── 달력 ──────────────────────────────────────────────────────────────────────
