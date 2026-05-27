@@ -505,11 +505,80 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
     </div>
     <div class="emodal-field">
       <div class="emodal-label">불량 유형</div>
-      <input class="inp" id="e-defect" type="text" placeholder="예) 찍힘, 긁힘, 도장불량">
+      <select class="inp" id="e-defect-sel" onchange="eOnDefect(this.value)">
+        <option value="">대분류 선택</option>
+      </select>
+      <div id="e-defect-etc-wrap" style="display:none;margin-top:7px;">
+        <input class="inp" id="e-defect-etc" type="text" placeholder="불량 내용 직접 입력">
+      </div>
     </div>
-    <div class="emodal-field">
+    <div class="emodal-field" id="e-parts-field" style="display:none;">
       <div class="emodal-label" id="e-sub-label">교환/수정 부품</div>
-      <input class="inp" id="e-defect-sub" type="text" placeholder="부품명 입력 (없으면 비워도 됨)">
+      <!-- FRT 부품 -->
+      <div id="e-wrap-frt" style="display:none;">
+        <select class="inp" id="e-sel-frt" onchange="eOnPartOther(this,'e-txt-frt')">
+          <option value="">부품 선택</option>
+        </select>
+        <div id="e-txt-frt" style="display:none;margin-top:7px;">
+          <input class="inp" id="e-inp-frt" type="text" placeholder="FRT 부품명 직접 입력">
+        </div>
+      </div>
+      <!-- RR 부품 -->
+      <div id="e-wrap-rr" style="display:none;">
+        <select class="inp" id="e-sel-rr" onchange="eOnPartOther(this,'e-txt-rr')">
+          <option value="">부품 선택</option>
+          <option>BUMPER ASSY-RR (리어 범퍼 앗세이)</option>
+          <option value="COVER-RR BUMPER UPR LH (어퍼커버 LH)">COVER-RR BUMPER UPR LH (리어 몰딩 LH)</option>
+          <option value="COVER-RR BUMPER UPR RH (어퍼커버 RH)">COVER-RR BUMPER UPR RH (리어 몰딩 RH)</option>
+          <option>COVER-RR BUMPER LWR (리어로워)</option>
+          <option>SKID PLATE-RR BUMPER (리어 스키드)</option>
+          <option>CAP-RR HOOK (후크캡)</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <div id="e-txt-rr" style="display:none;margin-top:7px;">
+          <input class="inp" id="e-inp-rr" type="text" placeholder="RR 부품명 직접 입력">
+        </div>
+      </div>
+      <!-- C·PAD 부품 -->
+      <div id="e-wrap-cpad" style="display:none;">
+        <select class="inp" id="e-sel-cpad" onchange="eOnCpadChange(this.value)">
+          <option value="">부품 선택</option>
+          <option>글로브 박스</option><option>에어백</option><option>카울바</option>
+          <option>센터페시아</option><option>클로스터페시아</option><option>메인판넬</option>
+          <option>노즐 LH</option><option>노즐 RH</option><option>에어벤트</option>
+          <option>하네스</option><option>클로스터 유닛</option><option>오디오</option>
+          <option>센터 스위치(버튼)</option><option>시가잭</option><option>히터컨트롤</option>
+          <option value="기타">기타 (직접 입력)</option>
+        </select>
+        <div id="e-cpad-globebox" style="display:none;margin-top:7px;">
+          <select class="inp" id="e-cpad-globebox-sel"><option value="">세부 부품</option>
+            <option>리드</option><option>하우징</option><option>노브</option></select>
+        </div>
+        <div id="e-cpad-vent" style="display:none;margin-top:7px;">
+          <select class="inp" id="e-cpad-vent-sel"><option value="">세부 부품</option>
+            <option>LH</option><option>CTR-LH</option><option>CTR-RH</option><option>RH</option></select>
+        </div>
+        <div id="e-cpad-audio" style="display:none;margin-top:7px;">
+          <select class="inp" id="e-cpad-audio-sel"><option value="">세부 부품</option>
+            <option>IBU</option><option>ICU</option><option>USB</option><option>AVN(모니터)</option></select>
+        </div>
+        <div id="e-cpad-etc" style="display:none;margin-top:7px;">
+          <input class="inp" id="e-cpad-etc-inp" type="text" placeholder="부품명 직접 입력">
+        </div>
+      </div>
+      <!-- 센서 홀더 (고무링말림) -->
+      <div id="e-wrap-holder" style="display:none;">
+        <select class="inp" id="e-sel-holder">
+          <option value="">센서 홀더 선택</option>
+          <option>센서 홀더 NO1 (LH 끝)</option><option>센서 홀더 NO2</option>
+          <option>센서 홀더 NO3</option><option>센서 홀더 NO4</option>
+          <option>센서 홀더 NO5</option><option>센서 홀더 NO6 (RH 끝)</option>
+        </select>
+      </div>
+      <!-- 텍스트 폴백 (복합 위치 등) -->
+      <div id="e-wrap-text" style="display:none;">
+        <input class="inp" id="e-defect-sub" type="text" placeholder="부품명 입력 (없으면 비워도 됨)">
+      </div>
     </div>
     <div class="emodal-field">
       <div class="emodal-label">귀책처</div>
@@ -756,6 +825,8 @@ let _listData = [];           // 오늘 목록 캐시 (수정 모달에서 pre-f
 let _pendingEditId = null;
 let _editAct = 'fix';
 let _editResp = '';
+let _editPos = '';   // 수정 중인 레코드의 위치 (FRT/RR/C·PAD)
+let _editModel = ''; // 수정 중인 레코드의 차종
 
 // 날짜
 const D=new Date(), DY=['일','월','화','수','목','금','토'];
@@ -1219,18 +1290,159 @@ async function confirmDelete() {
   }
 }
 
-// ★ 수정 모달
+// ★ 수정 모달 — 드롭다운 버전
+// 불량유형 select 빌드 (조치사항에 따라)
+function eBuildDefectSel(action){
+  const list = action==='fix' ? DEFECTS_FIX : DEFECTS_SWP;
+  const sel = document.getElementById('e-defect-sel');
+  sel.innerHTML = '<option value="">대분류 선택</option>';
+  list.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+}
+// 불량유형 선택 시 부품 섹션 표시/숨김
+function eOnDefect(v){
+  document.getElementById('e-defect-etc-wrap').style.display = v==='기타' ? 'block' : 'none';
+  const pf = document.getElementById('e-parts-field');
+  if(!v || v==='기타'){ pf.style.display='none'; return; }
+  pf.style.display = 'block';
+  if(_editAct==='fix' && v==='고무링말림') eShowParts('holder');
+  else eShowParts(_editPos);
+}
+// 위치에 맞는 부품 섹션만 표시
+function eShowParts(type){
+  ['e-wrap-frt','e-wrap-rr','e-wrap-cpad','e-wrap-holder','e-wrap-text'].forEach(id => {
+    document.getElementById(id).style.display='none';
+  });
+  const prefix = _editAct==='fix' ? '수정 부품' : '교환 부품';
+  document.getElementById('e-sub-label').textContent = prefix;
+  if(type==='FRT'){
+    document.getElementById('e-sub-label').textContent = prefix+' (FRT)';
+    buildFrtOptions(document.getElementById('e-sel-frt'), _editModel);
+    document.getElementById('e-wrap-frt').style.display='block';
+  } else if(type==='RR'){
+    document.getElementById('e-sub-label').textContent = prefix+' (RR)';
+    document.getElementById('e-wrap-rr').style.display='block';
+  } else if(type==='C·PAD'){
+    document.getElementById('e-sub-label').textContent = prefix+' (C·PAD)';
+    document.getElementById('e-wrap-cpad').style.display='block';
+  } else if(type==='holder'){
+    document.getElementById('e-sub-label').textContent = '수정 부품';
+    document.getElementById('e-wrap-holder').style.display='block';
+  } else {
+    document.getElementById('e-wrap-text').style.display='block';
+  }
+}
+// 기타 직접입력 토글
+function eOnPartOther(sel,id){ document.getElementById(id).style.display = sel.value==='기타' ? 'block' : 'none'; }
+// C·PAD 하위 드롭다운
+function eOnCpadChange(v){
+  ['e-cpad-globebox','e-cpad-vent','e-cpad-audio','e-cpad-etc'].forEach(id => document.getElementById(id).style.display='none');
+  if(v==='글로브 박스') document.getElementById('e-cpad-globebox').style.display='block';
+  else if(v==='에어벤트') document.getElementById('e-cpad-vent').style.display='block';
+  else if(v==='오디오') document.getElementById('e-cpad-audio').style.display='block';
+  else if(v==='기타') document.getElementById('e-cpad-etc').style.display='block';
+}
+// 부품값 수집
+function eGetPartValue(){
+  const defect = document.getElementById('e-defect-sel').value;
+  if(_editAct==='fix' && defect==='고무링말림') return document.getElementById('e-sel-holder').value;
+  if(_editPos==='FRT'){
+    const sel=document.getElementById('e-sel-frt');
+    if(sel.value==='기타') return document.getElementById('e-inp-frt').value.trim()||'기타';
+    return sel.value;
+  } else if(_editPos==='RR'){
+    const sel=document.getElementById('e-sel-rr');
+    if(sel.value==='기타') return document.getElementById('e-inp-rr').value.trim()||'기타';
+    return sel.value;
+  } else if(_editPos==='C·PAD'){
+    const main=document.getElementById('e-sel-cpad').value;
+    if(!main) return '';
+    if(main==='글로브 박스'){const s=document.getElementById('e-cpad-globebox-sel').value;return '글로브 박스'+(s?' '+s:'');}
+    if(main==='에어벤트'){const s=document.getElementById('e-cpad-vent-sel').value;return '에어벤트'+(s?' '+s:'');}
+    if(main==='오디오'){const s=document.getElementById('e-cpad-audio-sel').value;return '오디오'+(s?' '+s:'');}
+    if(main==='기타') return document.getElementById('e-cpad-etc-inp').value.trim()||'기타';
+    return main;
+  }
+  return document.getElementById('e-defect-sub').value.trim();
+}
+// 기존 저장값으로 드롭다운 사전 선택
+function ePrefillParts(defectSub, pos, defect){
+  if(!defectSub) return;
+  if(_editAct==='fix' && defect==='고무링말림'){
+    document.getElementById('e-sel-holder').value=defectSub; return;
+  }
+  if(pos==='FRT'){
+    const sel=document.getElementById('e-sel-frt');
+    const opts=Array.from(sel.options).map(o=>o.value);
+    if(opts.includes(defectSub)){sel.value=defectSub;}
+    else{sel.value='기타';document.getElementById('e-inp-frt').value=defectSub;document.getElementById('e-txt-frt').style.display='block';}
+  } else if(pos==='RR'){
+    const sel=document.getElementById('e-sel-rr');
+    const opts=Array.from(sel.options).map(o=>o.value);
+    if(opts.includes(defectSub)){sel.value=defectSub;}
+    else{sel.value='기타';document.getElementById('e-inp-rr').value=defectSub;document.getElementById('e-txt-rr').style.display='block';}
+  } else if(pos==='C·PAD'){
+    const mains=['글로브 박스','에어백','카울바','센터페시아','클로스터페시아','메인판넬',
+      '노즐 LH','노즐 RH','에어벤트','하네스','클로스터 유닛','오디오','센터 스위치(버튼)','시가잭','히터컨트롤'];
+    let matched=false;
+    for(const mp of mains){
+      if(defectSub===mp||defectSub.startsWith(mp+' ')){
+        document.getElementById('e-sel-cpad').value=mp; eOnCpadChange(mp);
+        const sub=defectSub.slice(mp.length).trim();
+        if(sub){
+          if(mp==='글로브 박스') document.getElementById('e-cpad-globebox-sel').value=sub;
+          else if(mp==='에어벤트') document.getElementById('e-cpad-vent-sel').value=sub;
+          else if(mp==='오디오') document.getElementById('e-cpad-audio-sel').value=sub;
+        }
+        matched=true; break;
+      }
+    }
+    if(!matched){document.getElementById('e-sel-cpad').value='기타';eOnCpadChange('기타');document.getElementById('e-cpad-etc-inp').value=defectSub;}
+  } else {
+    document.getElementById('e-defect-sub').value=defectSub;
+  }
+}
+
 function openEditModal(id, source){
   const r = _listData.find(x => x.id === id) || {};
   _pendingEditId = id;
-  // 필드 채우기
-  document.getElementById('e-cno').value = r.cno || '';
-  document.getElementById('e-defect').value = r.defect || '';
-  document.getElementById('e-defect-sub').value = r.defect_sub || '';
+  _editPos   = r.position || '';
+  _editModel = r.model || '';
+  // 기본 필드
+  document.getElementById('e-cno').value  = r.cno  || '';
   document.getElementById('e-memo').value = r.memo || '';
+  // 부품 섹션 초기화
+  ['e-wrap-frt','e-wrap-rr','e-wrap-cpad','e-wrap-holder','e-wrap-text'].forEach(id2 => {
+    document.getElementById(id2).style.display='none';
+  });
+  document.getElementById('e-parts-field').style.display='none';
+  document.getElementById('e-defect-etc-wrap').style.display='none';
+  ['e-cpad-globebox','e-cpad-vent','e-cpad-audio','e-cpad-etc'].forEach(id2 => document.getElementById(id2).style.display='none');
+  document.getElementById('e-txt-frt').style.display='none';
+  document.getElementById('e-txt-rr').style.display='none';
   // 조치사항
-  const act = r.action === '교환' ? 'swp' : 'fix';
-  ePickAct(act);
+  const act = r.action==='교환' ? 'swp' : 'fix';
+  _editAct = act;
+  document.getElementById('eact-fix').className = 'act'+(act==='fix'?' sel-fix':'');
+  document.getElementById('eact-swp').className = 'act'+(act==='swp'?' sel-swp':'');
+  eBuildDefectSel(act);
+  // 불량유형 사전 선택
+  const defectVal = r.defect || '';
+  const defectSel = document.getElementById('e-defect-sel');
+  const defectOpts = Array.from(defectSel.options).map(o => o.value);
+  if(defectOpts.includes(defectVal)){
+    defectSel.value = defectVal;
+  } else if(defectVal){
+    defectSel.value = '기타';
+    document.getElementById('e-defect-etc').value = defectVal;
+    document.getElementById('e-defect-etc-wrap').style.display = 'block';
+  }
+  // 부품 섹션 표시 및 사전 선택
+  if(defectVal && defectVal!=='기타'){
+    document.getElementById('e-parts-field').style.display = 'block';
+    if(act==='fix' && defectVal==='고무링말림') eShowParts('holder');
+    else eShowParts(_editPos);
+    ePrefillParts(r.defect_sub||'', _editPos, defectVal);
+  }
   // 귀책처
   ePickResp(r.resp || '');
   document.getElementById('edit-modal').style.display = 'flex';
@@ -1241,30 +1453,41 @@ function closeEditModal(){
 }
 function ePickAct(t){
   _editAct = t;
-  document.getElementById('eact-fix').className = 'act' + (t==='fix' ? ' sel-fix' : '');
-  document.getElementById('eact-swp').className = 'act' + (t==='swp' ? ' sel-swp' : '');
-  document.getElementById('e-sub-label').textContent = (t==='fix' ? '수정 부품' : '교환 부품');
+  document.getElementById('eact-fix').className = 'act'+(t==='fix'?' sel-fix':'');
+  document.getElementById('eact-swp').className = 'act'+(t==='swp'?' sel-swp':'');
+  eBuildDefectSel(t);
+  // 조치사항 바꾸면 부품 섹션 다시 표시
+  const v = document.getElementById('e-defect-sel').value;
+  if(v && v!=='기타'){
+    document.getElementById('e-parts-field').style.display='block';
+    if(t==='fix' && v==='고무링말림') eShowParts('holder');
+    else eShowParts(_editPos);
+  }
 }
 function ePickResp(v){
   _editResp = v;
   const map = {'캠스':'er-cams','기아':'er-kia','복합':'er-mix'};
   Object.entries(map).forEach(([k,id])=>{
-    document.getElementById(id).className = 'bs' + (k===v ? ' on' : '');
+    document.getElementById(id).className = 'bs'+(k===v?' on':'');
   });
 }
 async function confirmEdit(){
   if(!_pendingEditId) return;
   const btn = document.getElementById('edit-confirm-btn');
   btn.disabled = true; btn.textContent = '저장 중...';
+  // 불량유형 값
+  const defectSel = document.getElementById('e-defect-sel');
+  let defectVal = defectSel.value;
+  if(defectVal==='기타') defectVal = document.getElementById('e-defect-etc').value.trim()||'기타';
   try{
     const res = await fetch(API+'/records/'+_pendingEditId, {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
-        action:     _editAct === 'fix' ? '수정' : '교환',
+        action:     _editAct==='fix' ? '수정' : '교환',
         cno:        document.getElementById('e-cno').value,
-        defect:     document.getElementById('e-defect').value,
-        defect_sub: document.getElementById('e-defect-sub').value,
+        defect:     defectVal,
+        defect_sub: eGetPartValue(),
         resp:       _editResp,
         memo:       document.getElementById('e-memo').value,
       })
