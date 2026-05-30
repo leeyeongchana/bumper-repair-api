@@ -1093,7 +1093,13 @@ function onPhoto(input){
 function getExchangePart(){
   const pos=(document.querySelector('#pos-grp .bs.on')||{}).textContent||'';
   function selVal(id){const e=document.querySelector('#'+id+' select');return e?e.value:'';}
-  function inpVal(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+  function inpVal(id){
+    const e=document.getElementById(id);
+    if(!e) return '';
+    // id가 div wrapper에 붙어있는 경우 내부 input을 찾아 사용
+    const inp = (e.tagName==='INPUT'||e.tagName==='TEXTAREA') ? e : e.querySelector('input,textarea');
+    return inp ? inp.value.trim() : '';
+  }
   function resolve(v,otherId){if(v==='기타'){const t=inpVal(otherId);return t||'기타';}return v;}
   let parts=[];
   if(pos==='FRT'){const v=selVal('sub-part-frt');if(v)parts.push(resolve(v,'other-frt'));}
@@ -1152,9 +1158,14 @@ async function submitForm(){
   if(!defect){showToast('불량 유형을 선택해주세요'); scrollAndPing('defect-card'); return;}
   if(!resp)  {showToast('책임구를 선택해주세요');   scrollAndPing('card-resp');   return;}
 
-  const exchPart = curAct==='fix' && defect==='고무링말림'
-    ? getHolderPart()
-    : (curAct==='swp' || curAct==='fix') ? getExchangePart() : '';
+  let exchPart = '';
+  try {
+    exchPart = curAct==='fix' && defect==='고무링말림'
+      ? getHolderPart()
+      : (curAct==='swp' || curAct==='fix') ? getExchangePart() : '';
+  } catch(err) {
+    console.error('getExchangePart error:', err);
+  }
 
   // 버튼 비활성화
   isSubmitting = true;
