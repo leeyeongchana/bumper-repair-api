@@ -131,6 +131,17 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
 .cal-detail-hdr{font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:2px;}
 .hist-date-hdr{font-size:11px;font-weight:700;color:#94a3b8;padding:4px 2px;margin-top:4px;}
 
+/* 필수항목 미입력 핑 효과 */
+@keyframes card-ping {
+  0%   { border-color:#e84040; box-shadow:0 0 0 0 rgba(232,64,64,.5); }
+  60%  { border-color:#e84040; box-shadow:0 0 0 10px rgba(232,64,64,0); }
+  100% { border-color:#e84040; box-shadow:0 0 0 0 rgba(232,64,64,0); }
+}
+.card-error {
+  border-color:#e84040 !important;
+  animation: card-ping .55s ease-out 2;
+}
+
 /* 토스트 */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(70px);background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;padding:12px 24px;border-radius:50px;white-space:nowrap;pointer-events:none;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -1133,13 +1144,13 @@ async function submitForm(){
   const color=document.getElementById('color-sel').value;
   const memo=document.getElementById('memo').value;
 
-  if(!model){showToast('차종을 선택해주세요');return;}
-  if(!pos){showToast('구분을 선택해주세요');return;}
-  if(!cno){showToast('C/NO를 입력해주세요');return;}
-  if(!color){showToast('색상 코드를 선택해주세요');return;}
-  if(!curAct){showToast('조치사항을 선택해주세요');return;}
-  if(!defect){showToast('불량 유형을 선택해주세요');return;}
-  if(!resp){showToast('책임구를 선택해주세요');return;}
+  if(!model) {showToast('차종을 선택해주세요');    scrollAndPing('card-model');  return;}
+  if(!pos)   {showToast('구분을 선택해주세요');    scrollAndPing('card-pos');    return;}
+  if(!cno)   {showToast('C/NO를 입력해주세요');   scrollAndPing('card-cno');    return;}
+  if(!color) {showToast('색상 코드를 선택해주세요'); scrollAndPing('card-color');  return;}
+  if(!curAct){showToast('조치사항을 선택해주세요'); scrollAndPing('card-act');    return;}
+  if(!defect){showToast('불량 유형을 선택해주세요'); scrollAndPing('defect-card'); return;}
+  if(!resp)  {showToast('책임구를 선택해주세요');   scrollAndPing('card-resp');   return;}
 
   const exchPart = curAct==='fix' && defect==='고무링말림'
     ? getHolderPart()
@@ -1580,6 +1591,17 @@ async function loadHistory(){
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+
+// 필수항목 누락 시 해당 카드로 스크롤 + 핑 효과
+function scrollAndPing(cardId){
+  const el=document.getElementById(cardId);
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  el.classList.remove('card-error');
+  void el.offsetWidth; // reflow: 애니메이션 재시작
+  el.classList.add('card-error');
+  setTimeout(()=>el.classList.remove('card-error'),1200);
+}
 
 // 페이지 로드 시 인증 상태 확인 (스크립트 끝부분 - 모든 함수가 정의된 뒤)
 checkAuthOnLoad();
