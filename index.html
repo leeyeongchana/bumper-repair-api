@@ -142,6 +142,12 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   animation: card-ping .55s ease-out 2;
 }
 
+/* 검색 탭 */
+.search-screen{display:none;padding:12px 14px;flex-direction:column;gap:8px;}
+.search-btn{background:#0f3460;color:#fff;border:none;border-radius:10px;padding:11px 20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:opacity .15s;flex-shrink:0;}
+.search-btn:active{opacity:.82;}
+.search-result-hdr{font-size:12px;font-weight:700;color:#94a3b8;padding:4px 2px;margin-bottom:2px;}
+
 /* 토스트 */
 .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(70px);background:#1a1a2e;color:#fff;font-size:13px;font-weight:700;padding:12px 24px;border-radius:50px;white-space:nowrap;pointer-events:none;transition:transform .25s cubic-bezier(.34,1.56,.64,1);z-index:999;}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -202,6 +208,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
     <div class="tab active" id="tab-input" onclick="showTab('input')">입력</div>
     <div class="tab" id="tab-list" onclick="showTab('list')">오늘 목록 <span id="list-cnt" style="background:rgba(255,255,255,0.2);padding:1px 6px;border-radius:8px;font-size:10px;">0</span></div>
     <div class="tab" id="tab-hist" onclick="showTab('hist')">수정 기록</div>
+    <div class="tab" id="tab-search" onclick="showTab('search')">검색</div>
   </div>
 </div>
 
@@ -493,6 +500,27 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
   </div>
 </div>
 
+<!-- 검색 화면 -->
+<div class="search-screen" id="search-screen">
+  <div class="card" id="search-card" style="display:flex;flex-direction:column;gap:10px;">
+    <div class="sl" id="search-label">C/NO 검색</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input class="cno-inp" id="search-cno" type="text" inputmode="numeric" maxlength="4"
+             placeholder="0001" autocomplete="off" style="flex:1;"
+             oninput="onSearchCnoInput(this)"
+             onkeypress="if(event.key==='Enter') doSearch();">
+      <button class="search-btn" onclick="doSearch()">검색</button>
+    </div>
+    <div style="font-size:11px;color:#94a3b8;">전체 날짜에서 해당 번호의 수정 기록을 조회합니다</div>
+  </div>
+  <div id="search-results">
+    <div class="empty-state" style="padding:40px 20px;">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-text">번호를 입력하고 검색하세요</div>
+    </div>
+  </div>
+</div>
+
 <!-- 기록 관리 모달 (취소/수정/삭제) -->
 <div class="modal-overlay" id="del-modal" style="display:none;">
   <div class="modal">
@@ -697,6 +725,7 @@ function doLogout(){
   document.getElementById('form-screen').style.display = 'none';
   document.getElementById('list-screen').style.display = 'none';
   document.getElementById('hist-screen').style.display = 'none';
+  document.getElementById('search-screen').style.display = 'none';
   document.getElementById('tabs').style.display = 'none';
   document.getElementById('user-info').style.display = 'none';
   document.getElementById('logout-btn').style.display = 'none';
@@ -860,14 +889,15 @@ document.getElementById('top-date').textContent =
 // 탭 전환
 function showTab(t) {
   curTab = t;
-  ['input','list','hist'].forEach(n => {
+  ['input','list','hist','search'].forEach(n => {
     document.getElementById('tab-'+n).classList.toggle('active', n===t);
   });
-  document.getElementById('form-screen').style.display = t==='input' ? 'flex' : 'none';
-  document.getElementById('list-screen').style.display = t==='list' ? 'flex' : 'none';
-  document.getElementById('hist-screen').style.display = t==='hist' ? 'flex' : 'none';
-  if(t==='list') renderList();
-  if(t==='hist') loadHistory();
+  document.getElementById('form-screen').style.display   = t==='input'  ? 'flex' : 'none';
+  document.getElementById('list-screen').style.display   = t==='list'   ? 'flex' : 'none';
+  document.getElementById('hist-screen').style.display   = t==='hist'   ? 'flex' : 'none';
+  document.getElementById('search-screen').style.display = t==='search' ? 'flex' : 'none';
+  if(t==='list')   renderList();
+  if(t==='hist')   loadHistory();
   pushNav({screen:'tabs', tab:t, factory:curF});
 }
 
@@ -884,6 +914,7 @@ function setF(f) {
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
   // 1공장: 바디 넘버(6자리) / 그외: C/NO(4자리)
   updateCnoField(f);
+  updateSearchField(f);
   // 2공장 전용 폼 카드 순서 적용
   reorderFormCards(f);
   // 차종별 RR 버튼 / 부품 목록 업데이트 (첫 번째 차종 기준)
@@ -914,6 +945,7 @@ function goSetup() {
   document.getElementById('form-screen').style.display='none';
   document.getElementById('list-screen').style.display='none';
   document.getElementById('hist-screen').style.display='none';
+  document.getElementById('search-screen').style.display='none';
   document.getElementById('tabs').style.display='none';
   pushNav({screen:'setup'});
 }
@@ -935,6 +967,72 @@ function updateCnoField(factory){
   }
   inp.value = '';
 }
+// ── 검색 탭 ────────────────────────────────────────────────────────────────────
+function updateSearchField(factory){
+  const lbl = document.getElementById('search-label');
+  const inp = document.getElementById('search-cno');
+  if(!lbl||!inp) return;
+  if(factory==='1공장'){
+    lbl.textContent = '바디 넘버 검색';
+    inp.maxLength   = 6;
+    inp.placeholder = '000001';
+  } else {
+    lbl.textContent = 'C/NO 검색';
+    inp.maxLength   = 4;
+    inp.placeholder = '0001';
+  }
+  inp.value = '';
+  document.getElementById('search-results').innerHTML =
+    '<div class="empty-state" style="padding:40px 20px;"><div class="empty-icon">🔍</div><div class="empty-text">번호를 입력하고 검색하세요</div></div>';
+}
+function onSearchCnoInput(el){
+  el.value = el.value.replace(/[^0-9]/g,'');
+}
+function makeSearchItem(r, i){
+  const cnoLbl = r.factory==='1공장' ? '바디 넘버' : 'C/NO';
+  const dateStr = r.date || (r.submitted_at ? r.submitted_at.slice(0,10) : '');
+  return `
+    <div class="list-item">
+      <div class="li-num">${i+1}</div>
+      <div class="li-body">
+        <div class="li-top">
+          <span class="li-tag ${r.action==='수정'?'fix':'swp'}">${r.action}</span>
+          <span class="li-title">${r.model||''} · ${r.position||''} · ${r.defect||''}</span>
+        </div>
+        ${r.defect_sub?'<div class="li-sub" style="color:#0f3460;font-weight:600;">'+(r.action==='수정'?'수정부품':'교환부품')+': '+r.defect_sub+'</div>':''}
+        <div class="li-sub">${cnoLbl} ${r.cno||''} · ${r.color||''} · ${r.resp||''}</div>
+        ${dateStr?'<div class="li-sub" style="color:#1a7f4b;font-weight:600;">📅 '+dateStr+'</div>':''}
+        ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
+        <div class="li-time">${r.submitted_at?r.submitted_at.slice(11,16):''}</div>
+      </div>
+    </div>`;
+}
+async function doSearch(){
+  const raw = document.getElementById('search-cno').value.trim().replace(/[^0-9]/g,'');
+  if(!raw || parseInt(raw,10)===0){
+    showToast('번호를 입력해주세요');
+    return;
+  }
+  const len = _cnoLen();
+  const cno = String(parseInt(raw,10)).padStart(len,'0');
+  document.getElementById('search-cno').value = cno;   // 입력값 정렬
+  const results = document.getElementById('search-results');
+  results.innerHTML = '<div class="empty-state" style="padding:40px 20px;"><div class="empty-icon" style="font-size:20px;">⏳</div><div class="empty-text">검색 중...</div></div>';
+  try {
+    const res = await fetch(API+'/records/search?cno='+encodeURIComponent(cno)+'&factory='+encodeURIComponent(curF));
+    const data = await res.json();
+    if(!data.length){
+      results.innerHTML = '<div class="empty-state" style="padding:40px 20px;"><div class="empty-icon">🔍</div><div class="empty-text">검색 결과가 없어요</div><div class="empty-sub">'+cno+' 번호 기록 없음</div></div>';
+      return;
+    }
+    results.innerHTML =
+      '<div class="search-result-hdr">검색 결과 ('+data.length+'건)</div>' +
+      data.map((r,i) => makeSearchItem(r,i)).join('');
+  } catch(e){
+    results.innerHTML = '<div class="empty-state" style="padding:40px 20px;"><div class="empty-icon">⚠️</div><div class="empty-text">불러올 수 없어요</div></div>';
+  }
+}
+
 function onCnoInput(el){el.value=el.value.replace(/[^0-9]/g,'').slice(0,_cnoLen());}
 function onCnoFocus(el){const n=parseInt(el.value||'0',10);el.value=n>0?String(n):'';el.placeholder='숫자 입력';}
 function onCnoBlur(el){
@@ -1272,7 +1370,7 @@ function makeListItem(r, i, source) {
           <span class="li-title">${r.model||''} · ${r.position||''} · ${r.defect||''}</span>
         </div>
         ${r.defect_sub?'<div class="li-sub" style="color:#0f3460;font-weight:600;">'+(r.action==='수정'?'수정부품':'교환부품')+': '+r.defect_sub+'</div>':''}
-        <div class="li-sub">C/NO ${r.cno||''} · ${r.color||''} · ${r.resp||''}</div>
+        <div class="li-sub">${r.factory==='1공장'?'바디 넘버':'C/NO'} ${r.cno||''} · ${r.color||''} · ${r.resp||''}</div>
         ${r.memo?'<div class="li-sub">'+r.memo+'</div>':''}
         ${r.submitted_by_name?'<div class="li-sub" style="color:#475569;font-weight:600;">등록: '+r.submitted_by_name+(r.submitted_by_dept?' · '+r.submitted_by_dept:'')+'</div>':''}
         <div class="li-time">${r.submitted_at?r.submitted_at.slice(11,16):''}</div>

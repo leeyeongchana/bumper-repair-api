@@ -279,6 +279,35 @@ def get_summary(
     conn.close()
     return {_row_to_dict(r)["date"]: _row_to_dict(r)["cnt"] for r in rows}
 
+# ── C/NO · 바디넘버 검색 ────────────────────────────────────────────────────────
+@app.get("/records/search")
+def search_records(
+    cno:     Optional[str] = Query(None),
+    factory: Optional[str] = Query(None),
+    limit:   int = Query(200),
+):
+    conn = get_db()
+    cur = conn.cursor()
+    q = "SELECT * FROM records WHERE 1=1"
+    params = []
+    if cno:
+        q += " AND cno=?"; params.append(cno)
+    if factory:
+        q += " AND factory=?"; params.append(factory)
+    q += " ORDER BY submitted_at DESC LIMIT ?"
+    params.append(limit)
+    cur.execute(_sql(q), params)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    result = []
+    for r in rows:
+        d = _row_to_dict(r)
+        d['markers'] = json.loads(d.get('markers') or '[]')
+        d['photos']  = json.loads(d.get('photos')  or '[]')
+        result.append(d)
+    return result
+
 # ── 단건 수정 ──────────────────────────────────────────────────────────────────
 class PatchRecord(BaseModel):
     action:     str = ""

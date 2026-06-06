@@ -1,5 +1,5 @@
 // 범퍼 수정일지 Service Worker
-const CACHE = 'bumper-v3';
+const CACHE = 'bumper-v4';
 
 self.addEventListener('install', () => self.skipWaiting());
 
