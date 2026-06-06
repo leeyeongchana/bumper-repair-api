@@ -261,7 +261,7 @@ input.cno-inp:focus{border-color:#0f3460;box-shadow:0 0 0 3px rgba(15,52,96,.08)
       </div>
     </div>
     <div class="card" id="card-cno">
-      <div class="sl">C/NO</div>
+      <div class="sl" id="cno-label">C/NO</div>
       <input class="cno-inp" id="cno-inp" type="text" inputmode="numeric" maxlength="4" placeholder="0001" autocomplete="off"
         oninput="onCnoInput(this)" onblur="onCnoBlur(this)" onfocus="onCnoFocus(this)">
     </div>
@@ -882,6 +882,8 @@ function setF(f) {
   try { showTab('input'); } finally { _navSilent = false; }
   document.getElementById('form-screen').style.display = 'flex';
   document.getElementById('cpad-btn').style.display = f==='3공장'?'flex':'none';
+  // 1공장: 바디 넘버(6자리) / 그외: C/NO(4자리)
+  updateCnoField(f);
   // 2공장 전용 폼 카드 순서 적용
   reorderFormCards(f);
   // 차종별 RR 버튼 / 부품 목록 업데이트 (첫 번째 차종 기준)
@@ -916,10 +918,33 @@ function goSetup() {
   pushNav({screen:'setup'});
 }
 
-// C/NO
-function onCnoInput(el){el.value=el.value.replace(/[^0-9]/g,'').slice(0,4);}
+// C/NO (1공장=바디넘버 6자리, 그외=C/NO 4자리)
+function _cnoLen(){ return curF==='1공장' ? 6 : 4; }
+function updateCnoField(factory){
+  const lbl = document.getElementById('cno-label');
+  const inp = document.getElementById('cno-inp');
+  if(!lbl||!inp) return;
+  if(factory==='1공장'){
+    lbl.textContent = '바디 넘버';
+    inp.maxLength   = 6;
+    inp.placeholder = '000001';
+  } else {
+    lbl.textContent = 'C/NO';
+    inp.maxLength   = 4;
+    inp.placeholder = '0001';
+  }
+  inp.value = '';
+}
+function onCnoInput(el){el.value=el.value.replace(/[^0-9]/g,'').slice(0,_cnoLen());}
 function onCnoFocus(el){const n=parseInt(el.value||'0',10);el.value=n>0?String(n):'';el.placeholder='숫자 입력';}
-function onCnoBlur(el){const r=el.value.replace(/[^0-9]/g,'');if(!r||r==='0000'){el.value='';el.placeholder='0001';return;}const n=Math.min(9999,Math.max(1,parseInt(r,10)));el.value=String(n).padStart(4,'0');}
+function onCnoBlur(el){
+  const r=el.value.replace(/[^0-9]/g,'');
+  const len=_cnoLen();
+  const ph=len===6?'000001':'0001';
+  if(!r||parseInt(r,10)===0){el.value='';el.placeholder=ph;return;}
+  const n=Math.min(Math.pow(10,len)-1, Math.max(1,parseInt(r,10)));
+  el.value=String(n).padStart(len,'0');
+}
 
 function pickB(g,el){
   document.querySelectorAll('#'+g+' .bs').forEach(b=>b.classList.remove('on'));
@@ -1158,7 +1183,7 @@ async function submitForm(){
 
   if(!model) {showToast('차종을 선택해주세요');    scrollAndPing('card-model');  return;}
   if(!pos)   {showToast('구분을 선택해주세요');    scrollAndPing('card-pos');    return;}
-  if(!cno)   {showToast('C/NO를 입력해주세요');   scrollAndPing('card-cno');    return;}
+  if(!cno)   {showToast((curF==='1공장'?'바디 넘버':'C/NO')+'를 입력해주세요'); scrollAndPing('card-cno'); return;}
   if(!color) {showToast('색상 코드를 선택해주세요'); scrollAndPing('card-color');  return;}
   if(!curAct){showToast('조치사항을 선택해주세요'); scrollAndPing('card-act');    return;}
   if(!defect){showToast('불량 유형을 선택해주세요'); scrollAndPing('defect-card'); return;}
