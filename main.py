@@ -1,5 +1,4 @@
-from fastapi import FastAPI, Query
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Query, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
@@ -9,6 +8,11 @@ KST = timezone(timedelta(hours=9))   # UTC+9 한국 표준시
 from typing import Optional
 from pydantic import BaseModel
 import json
+import base64
+import hashlib
+import hmac
+import secrets
+import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -156,15 +160,48 @@ def init_icons():
 init_icons()
 
 # ── App ────────────────────────────────────────────────────────────────────────
-app = FastAPI(title="범퍼 수정일지 API")
+app = FastAPI(title="범퍼 수정일지 API", docs_url=None, redoc_url=None, openapi_url=None)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ── 로그인 세션 (서버 서명 쿠키) ───────────────────────────────────────────────
+# ERP 로그인 성공 시 HttpOnly 쿠키 발급 → 모든 데이터 API에서 서버가 확인.
+SESSION_COOKIE = "bumper_session"
+SESSION_DAYS = 30
+SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)  # 미설정 시 재시작마다 재로그인
+COOKIE_SECURE = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
+
+def _b64(b: bytes) -> str:
+    return base64.urlsafe_b64encode(b).decode().rstrip("=")
+
+def _unb64(s: str) -> bytes:
+    return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+def _sign(payload: str) -> str:
+    return _b64(hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).digest())
+
+def make_session(emp: dict) -> str:
+    data = {"id": emp.get("employeeId", ""), "name": emp.get("name", ""),
+            "dept": emp.get("department", ""), "exp": int(time.time()) + SESSION_DAYS * 86400}
+    payload = _b64(json.dumps(data, ensure_ascii=False).encode())
+    return payload + "." + _sign(payload)
+
+def read_session(token: str):
+    try:
+        payload, sig = token.split(".", 1)
+        if not hmac.compare_digest(sig, _sign(payload)):
+            return None
+        data = json.loads(_unb64(payload))
+        return data if data.get("exp", 0) > time.time() else None
+    except Exception:
+        return None
+
+def require_user(request: Request) -> dict:
+    user = read_session(request.cookies.get(SESSION_COOKIE, ""))
+    if not user:
+        raise HTTPException(401, "로그인이 필요합니다")
+    # 다른 사이트에서 쿠키를 이용한 변경 요청 차단 (화면 fetch는 이 헤더를 붙임)
+    if request.method not in ("GET", "HEAD") and request.headers.get("x-requested-with") != "bumper":
+        raise HTTPException(403, "잘못된 요청입니다")
+    return user
 
 class Record(BaseModel):
     factory:           str = ""
@@ -185,7 +222,7 @@ class Record(BaseModel):
 
 # ── 제출 ───────────────────────────────────────────────────────────────────────
 @app.post("/submit")
-async def submit_record(record: Record):
+async def submit_record(record: Record, user: dict = Depends(require_user)):
     now = datetime.now(KST)   # 한국 표준시 기준으로 날짜/시간 저장
     conn = get_db()
     cur = conn.cursor()
@@ -198,9 +235,9 @@ async def submit_record(record: Record):
         json.dumps(record.photos, ensure_ascii=False),
         now.isoformat(),
         now.strftime("%Y-%m-%d"),
-        record.submitted_by_id,
-        record.submitted_by_name,
-        record.submitted_by_dept,
+        user["id"],
+        user["name"] or record.submitted_by_name,
+        user["dept"] or record.submitted_by_dept,
     )
     base_sql = """
         INSERT INTO records
@@ -226,6 +263,7 @@ def get_records(
     date:    Optional[str] = Query(None),
     factory: Optional[str] = Query(None),
     limit:   int = Query(200),
+    user:    dict = Depends(require_user),
 ):
     conn = get_db()
     cur = conn.cursor()
@@ -254,6 +292,7 @@ def get_records(
 def get_summary(
     year:  Optional[int] = Query(None),
     month: Optional[int] = Query(None),
+    user:  dict = Depends(require_user),
 ):
     now_kst = datetime.now(KST)
     if year  is None: year  = now_kst.year
@@ -285,6 +324,7 @@ def search_records(
     cno:     Optional[str] = Query(None),
     factory: Optional[str] = Query(None),
     limit:   int = Query(200),
+    user:    dict = Depends(require_user),
 ):
     conn = get_db()
     cur = conn.cursor()
@@ -318,7 +358,7 @@ class PatchRecord(BaseModel):
     memo:       str = ""
 
 @app.put("/records/{record_id}")
-def update_record(record_id: int, patch: PatchRecord):
+def update_record(record_id: int, patch: PatchRecord, user: dict = Depends(require_user)):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(_sql("""
@@ -337,7 +377,7 @@ def update_record(record_id: int, patch: PatchRecord):
 
 # ── 단건 삭제 ──────────────────────────────────────────────────────────────────
 @app.delete("/records/{record_id}")
-def delete_record(record_id: int):
+def delete_record(record_id: int, user: dict = Depends(require_user)):
     conn = get_db()
     cur = conn.cursor()
     cur.execute(_sql("DELETE FROM records WHERE id=?"), (record_id,))
@@ -345,17 +385,6 @@ def delete_record(record_id: int):
     cur.close()
     conn.close()
     return {"ok": True}
-
-# ── 전체 삭제 (테스트 데이터 초기화용) ────────────────────────────────────────
-@app.delete("/records")
-def delete_all_records():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM records")
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"ok": True, "message": "전체 삭제 완료"}
 
 # ── 헬스체크 (GET + HEAD 모두 허용 — UptimeRobot은 HEAD 방식 사용) ─────────────
 # DB 쿼리 포함 → UptimeRobot 10분 핑으로 Supabase 자동 활성 유지 (휴가 기간도 안전)
@@ -380,9 +409,7 @@ import urllib.request as _urlreq
 import urllib.error as _urlerr
 
 ICAMS_BASE = os.environ.get("ICAMS_BASE", "https://selfservice.icams.co.kr")
-ICAMS_API_KEY = os.environ.get("ICAMS_API_KEY", "6147")
-# 초기 운영 단계: 사번 == 비밀번호 입력 시 임시 통과 (env로 끌 수 있음)
-ALLOW_INITIAL_LOGIN = os.environ.get("ALLOW_INITIAL_LOGIN", "1") == "1"
+ICAMS_API_KEY = os.environ.get("ICAMS_API_KEY", "")  # Railway Variables에만 저장
 SENSITIVE_KEY_HINTS = ("resident", "rrn", "ssn", "registration", "regnumber", "regno", "socialsecurity")
 
 def _strip_sensitive(d):
@@ -421,57 +448,66 @@ class LoginPayload(BaseModel):
     password:   str = ""
     name:       str = ""   # 이름 자동입력 실패 시 직접 입력값
 
-@app.post("/auth/login")
-async def auth_login(payload: LoginPayload):
-    if not payload.employeeId or not payload.password:
-        return {"authenticated": False, "error": "사번과 비밀번호를 입력해주세요"}
+_login_fails: dict = {}   # 사번 → 최근 실패 시각들 (무차별 대입 방지)
+LOGIN_MAX_FAILS, LOGIN_WINDOW = 5, 600
 
-    # 1) ICAMS 인증 서버에 먼저 시도 — 성공하면 실제 사원 정보 사용
-    body = json.dumps({
-        "employeeId": payload.employeeId,
-        "password":   payload.password,
-    }).encode("utf-8")
+@app.post("/auth/login")
+async def auth_login(payload: LoginPayload, response: Response):
+    emp_id = payload.employeeId.strip()
+    if not emp_id or not payload.password:
+        return {"authenticated": False, "error": "사번과 비밀번호를 입력해주세요"}
+    if not ICAMS_API_KEY:
+        return {"authenticated": False, "error": "서버 설정 필요 (관리자 문의)"}
+    now = time.time()
+    fails = [t for t in _login_fails.get(emp_id, []) if now - t < LOGIN_WINDOW]
+    if len(fails) >= LOGIN_MAX_FAILS:
+        return {"authenticated": False, "error": "로그인 실패가 많아요. 10분 뒤 다시 시도해주세요"}
+
+    # ICAMS ERP 인증 서버로만 확인 (임시 로그인 없음)
+    body = json.dumps({"employeeId": emp_id, "password": payload.password}).encode("utf-8")
     req = _urlreq.Request(
         ICAMS_BASE + "/api/erp/login",
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "x-api-key":    ICAMS_API_KEY,
-        },
+        headers={"Content-Type": "application/json", "x-api-key": ICAMS_API_KEY},
         method="POST",
     )
-    upstream_failed = False
     try:
         with _urlreq.urlopen(req, timeout=10) as resp:
             raw = resp.read().decode("utf-8")
             data = json.loads(raw) if raw else {}
-        if isinstance(data, dict) and data.get("authenticated"):
-            employee = _normalize_employee(_strip_sensitive(data.get("employee") or {}))
-            # ICAMS가 이름을 안 줬을 때 직접 입력값으로 보완
-            if not employee.get("name") and payload.name:
-                employee["name"] = payload.name
-            return {"authenticated": True, "employee": employee}
-        upstream_failed = True  # 200이지만 인증 실패
     except _urlerr.HTTPError as e:
-        upstream_failed = (e.code == 401)
-        if not upstream_failed:
+        if e.code != 401:
             return {"authenticated": False, "error": f"인증 서버 오류 ({e.code})"}
+        data = {}
     except Exception:
-        upstream_failed = True  # 네트워크 오류도 폴백 허용
+        return {"authenticated": False, "error": "인증 서버에 연결할 수 없어요. 잠시 뒤 다시 시도해주세요"}
 
-    # 2) 초기 운영 폴백: 사번 == 비밀번호 입력 시 임시 통과
-    if ALLOW_INITIAL_LOGIN and payload.employeeId == payload.password:
-        return {
-            "authenticated": True,
-            "employee": {
-                "employeeId": payload.employeeId,
-                "name":       payload.name or f"사번 {payload.employeeId}",
-                "department": "",
-                "_initialLogin": True,
-            },
-        }
+    if not (isinstance(data, dict) and data.get("authenticated")):
+        _login_fails[emp_id] = fails + [now]
+        return {"authenticated": False, "error": "사번 또는 비밀번호가 올바르지 않습니다"}
 
-    return {"authenticated": False, "error": "사번 또는 비밀번호가 올바르지 않습니다"}
+    _login_fails.pop(emp_id, None)
+    employee = _normalize_employee(_strip_sensitive(data.get("employee") or {}))
+    employee["employeeId"] = emp_id
+    # ICAMS가 이름을 안 줬을 때 직접 입력값으로 보완
+    if not employee.get("name") and payload.name:
+        employee["name"] = payload.name.strip()
+    response.set_cookie(SESSION_COOKIE, make_session(employee), max_age=SESSION_DAYS * 86400,
+                        httponly=True, secure=COOKIE_SECURE, samesite="lax")
+    return {"authenticated": True, "employee": employee}
+
+@app.post("/auth/logout")
+def auth_logout(response: Response):
+    response.delete_cookie(SESSION_COOKIE)
+    return {"ok": True}
+
+@app.get("/auth/me")
+def auth_me(response: Response, user: dict = Depends(require_user)):
+    # 앱을 열 때마다 기간 연장 → 계속 쓰는 상주원은 다시 로그인할 일 없음
+    emp = {"employeeId": user["id"], "name": user["name"], "department": user["dept"]}
+    response.set_cookie(SESSION_COOKIE, make_session(emp), max_age=SESSION_DAYS * 86400,
+                        httponly=True, secure=COOKIE_SECURE, samesite="lax")
+    return emp
 
 # ── HTML 페이지 라우트 ────────────────────────────────────────────────────────
 @app.get("/")

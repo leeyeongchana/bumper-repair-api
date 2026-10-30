@@ -343,6 +343,15 @@ const LS_AUTH_KEY = 'bumper_employee';
 
 let _isAuthenticated = false;
 
+// ── 서버 세션 확인: 모든 요청에 표시 헤더, 401이면 로그인 화면으로 ──────────
+const _rawFetch = window.fetch.bind(window);
+window.fetch = async (url, opt = {}) => {
+  opt = {...opt, credentials: 'same-origin', headers: {...(opt.headers || {}), 'X-Requested-With': 'bumper'}};
+  const res = await _rawFetch(url, opt);
+  if (res.status === 401 && !String(url).includes('/auth/login')) forceLogin();
+  return res;
+};
+
 // ── 인증 체크 (미로그인 시 동일 페이지에 로그인 화면 표시) ────────────────────
 function getStoredEmployee(){
   try { return JSON.parse(localStorage.getItem(LS_AUTH_KEY) || 'null'); }
@@ -445,6 +454,16 @@ async function doLogin(){
 
 function doLogout(){
   if(!confirm('로그아웃 하시겠습니까?')) return;
+  fetch(API+'/auth/logout', {method:'POST'}).catch(()=>{});
+  resetToLogin();
+}
+// 세션 만료·미로그인 → 확인 없이 로그인 화면으로
+function forceLogin(){
+  if(!_isAuthenticated) return;
+  resetToLogin();
+  document.getElementById('login-err').textContent = '다시 로그인해주세요';
+}
+function resetToLogin(){
   localStorage.removeItem(LS_AUTH_KEY);
   _isAuthenticated = false;
   // 입력값 초기화
@@ -464,6 +483,7 @@ function doLogout(){
   } else {
     _isAuthenticated = true;
     showDashboard(emp);
+    fetch(API+'/auth/me').catch(()=>{});  // 서버 세션 없으면 forceLogin
   }
 })();
 
